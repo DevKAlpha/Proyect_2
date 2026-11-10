@@ -8,6 +8,7 @@ import { Terminal, type ITerminalOptions } from '@xterm/xterm';
 import { killPty, openExternal, resizePty, spawnPty, writePty, type Config } from '../ipc';
 import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
 import { useTabs, type Tab } from '../stores/tabs';
+import { terminalTheme } from '../stores/theme';
 
 /**
  * Opens a link from the terminal. Ctrl (or Cmd) must be held, as in other
@@ -17,8 +18,11 @@ function followLink(event: MouseEvent, url: string) {
   if (event.ctrlKey || event.metaKey) void openExternal(url);
 }
 
-/** The part of the user's configuration that xterm.js draws. */
-function terminalOptions(config: Config, zoom: number): ITerminalOptions {
+/**
+ * The part of the user's configuration that xterm.js draws. `seeThrough`
+ * says whether this screen was opened able to show a picture behind it.
+ */
+function terminalOptions(config: Config, zoom: number, seeThrough: boolean): ITerminalOptions {
   return {
     fontFamily: config.font.family,
     fontSize: effectiveFontSize(config.font.size, zoom),
@@ -29,12 +33,9 @@ function terminalOptions(config: Config, zoom: number): ITerminalOptions {
     // readable contrast (WCAG AA) without touching colours that already pass.
     minimumContrastRatio: 4.5,
     scrollback: config.scrollback,
-    theme: {
-      background: config.theme.background,
-      foreground: config.theme.foreground,
-      cursor: config.theme.cursor,
-      selectionBackground: config.theme.selection,
-    },
+    cursorStyle: config.cursor.style,
+    cursorBlink: config.cursor.blink,
+    theme: terminalTheme(config, seeThrough),
   };
 }
 
@@ -92,6 +93,9 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  // Whether this screen can show a picture behind it. xterm.js fixes that
+  // when a screen opens, so it is remembered for later theme changes.
+  const seeThroughRef = useRef(false);
   const config = useSettings((state) => state.config);
   const zoom = useSettings((state) => state.zoom);
 
@@ -101,9 +105,13 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
     const initial = useSettings.getState();
     if (!host || !initial.config) return;
 
+    // Blending with a picture costs drawing time, so only screens opened
+    // while a picture is set pay for it.
+    const seeThrough = initial.backgroundUrl !== null;
+    seeThroughRef.current = seeThrough;
     const term = new Terminal({
-      ...terminalOptions(initial.config, initial.zoom),
-      cursorBlink: true,
+      ...terminalOptions(initial.config, initial.zoom, seeThrough),
+      allowTransparency: seeThrough,
       // Needed by the Unicode addon below.
       allowProposedApi: true,
       // Links that programs mark themselves (OSC 8), common in agent output.
@@ -141,6 +149,7 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
 
     spawnPty({
       shellId: tab.shellId,
+      projectId: tab.projectId,
       cols: term.cols,
       rows: term.rows,
       onData: (bytes) => term.write(bytes),
@@ -189,13 +198,13 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       termRef.current = null;
       fitRef.current = null;
     };
-  }, [tab.id, tab.shellId, tab.initialCommand]);
+  }, [tab.id, tab.shellId, tab.projectId, tab.initialCommand]);
 
   // Apply configuration edits and zoom to the open screen.
   useEffect(() => {
     const term = termRef.current;
     if (!term || !config) return;
-    Object.assign(term.options, terminalOptions(config, zoom));
+    Object.assign(term.options, terminalOptions(config, zoom, seeThroughRef.current));
     fitRef.current?.fit();
     // A newly chosen font may still be loading: glyphs drawn before it
     // arrived are cached with the fallback font and must be drawn again.
@@ -215,7 +224,8 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       role="tabpanel"
       id={`panel-${tab.id}`}
       aria-labelledby={`tab-${tab.id}`}
-      className={active ? 'absolute inset-0 p-2' : 'hidden'}
+      className={active ? 'absolute inset-0' : 'hidden'}
+      style={{ padding: config?.padding ?? 8 }}
     >
       <div ref={hostRef} className="h-full w-full" />
     </div>

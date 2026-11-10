@@ -43,3 +43,12 @@ body {
   /* It is an app, not a page: text is selected inside the terminal only. */
   user-select: none;
 }
+
+/*
+ * xterm.js paints this layer solid black from its own stylesheet and puts
+ * the theme colour on the layer above it. Left black, it would hide the
+ * background picture behind a see-through terminal.
+ */
+.xterm .xterm-viewport {
+  background-color: transparent;
+}

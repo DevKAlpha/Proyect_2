@@ -4,9 +4,23 @@ import {
   listShells,
   onConfigChanged,
   onConfigError,
+  readBackground,
   type Config,
   type ShellProfile,
 } from '../ipc';
+import { imageType } from './theme';
+
+/** Where the "sidebar closed" choice is kept. A view preference, not configuration. */
+const SIDEBAR_KEY = 'terminal:sidebar-closed';
+
+function readSidebarOpen(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_KEY) !== '1';
+  } catch {
+    // Storage can be blocked, or missing outside a browser: start open.
+    return true;
+  }
+}
 
 interface SettingsState {
   /** `null` until the first load finishes. */
@@ -16,12 +30,16 @@ interface SettingsState {
   configError: string | null;
   /** Points added to the configured font size with the zoom keys. Not saved. */
   zoom: number;
+  /** Object URL of the background picture, or `null` without one. */
+  backgroundUrl: string | null;
+  sidebarOpen: boolean;
   /** Loads configuration and shells, then follows edits of the file. */
   load: () => Promise<void>;
   dismissConfigError: () => void;
   /** Makes the text one step larger (`1`) or smaller (`-1`). */
   zoomBy: (step: 1 | -1) => void;
   resetZoom: () => void;
+  toggleSidebar: () => void;
 }
 
 const MIN_FONT_SIZE = 6;
@@ -47,33 +65,72 @@ export async function loadFonts(family: string): Promise<void> {
   }
 }
 
-export const useSettings = create<SettingsState>((set) => ({
-  config: null,
-  shells: [],
-  configError: null,
-  zoom: 0,
+export const useSettings = create<SettingsState>((set, get) => {
+  /** Loads the background picture named in `config`, or clears the old one. */
+  async function applyBackground(config: Config) {
+    const previous = get().backgroundUrl;
+    let next: string | null = null;
+    if (config.background.image) {
+      try {
+        const bytes = await readBackground();
+        next = URL.createObjectURL(new Blob([bytes], { type: imageType(config.background.image) }));
+      } catch (error) {
+        // Wrong path or type: say so where configuration errors are shown.
+        set({ configError: String(error) });
+      }
+    }
+    set({ backgroundUrl: next });
+    // The old picture is no longer on screen; free its memory.
+    if (previous) URL.revokeObjectURL(previous);
+  }
 
-  zoomBy: (step) =>
-    set((state) => {
-      const base = state.config?.font.size ?? 14;
-      // Stop at the limits, so zooming back responds at the first key press.
-      const size = effectiveFontSize(base, state.zoom + step);
-      return { zoom: size - base };
-    }),
+  return {
+    config: null,
+    shells: [],
+    configError: null,
+    zoom: 0,
+    backgroundUrl: null,
+    sidebarOpen: readSidebarOpen(),
 
-  resetZoom: () => set({ zoom: 0 }),
+    zoomBy: (step) =>
+      set((state) => {
+        const base = state.config?.font.size ?? 14;
+        // Stop at the limits, so zooming back responds at the first key press.
+        const size = effectiveFontSize(base, state.zoom + step);
+        return { zoom: size - base };
+      }),
 
-  load: async () => {
-    const [config, shells] = await Promise.all([getConfig(), listShells()]);
-    await loadFonts(config.font.family);
-    set({ config, shells });
-    // These listeners live as long as the window, so they are never removed.
-    await onConfigChanged((next) => set({ config: next, configError: null }));
-    await onConfigError((message) => set({ configError: message }));
-  },
+    resetZoom: () => set({ zoom: 0 }),
 
-  dismissConfigError: () => set({ configError: null }),
-}));
+    toggleSidebar: () =>
+      set((state) => {
+        const sidebarOpen = !state.sidebarOpen;
+        try {
+          localStorage.setItem(SIDEBAR_KEY, sidebarOpen ? '0' : '1');
+        } catch {
+          // Remembered for this run only.
+        }
+        return { sidebarOpen };
+      }),
+
+    load: async () => {
+      const [config, shells] = await Promise.all([getConfig(), listShells()]);
+      await loadFonts(config.font.family);
+      // The picture goes first: a screen decides once, when it opens,
+      // whether it can show a picture behind it.
+      await applyBackground(config);
+      set({ config, shells });
+      // These listeners live as long as the window, so they are never removed.
+      await onConfigChanged((next) => {
+        set({ config: next, configError: null });
+        void applyBackground(next);
+      });
+      await onConfigError((message) => set({ configError: message }));
+    },
+
+    dismissConfigError: () => set({ configError: null }),
+  };
+});
 
 /**
  * The shell for a new tab: the one named in the configuration when it exists

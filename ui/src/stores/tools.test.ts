@@ -2,7 +2,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToolStatus } from '../ipc';
 
 const listTools = vi.fn<() => Promise<ToolStatus[]>>();
-vi.mock('../ipc', () => ({ listTools, listAgents: async () => [] }));
+const browserOpen = vi.fn();
+const browserClose = vi.fn();
+vi.mock('../ipc', () => ({
+  listTools,
+  listAgents: async () => [],
+  browserStatus: async () => null,
+  browserOpen,
+  browserClose,
+}));
 
 const { missingTools, useTools } = await import('./tools');
 
@@ -17,7 +25,9 @@ const tool = (id: string, installed: boolean): ToolStatus => ({
 
 beforeEach(() => {
   listTools.mockReset();
-  useTools.setState({ tools: [], hidden: false });
+  browserOpen.mockReset();
+  browserClose.mockReset();
+  useTools.setState({ tools: [], hidden: false, browser: null, browserError: null });
 });
 
 describe('tools store', () => {
@@ -44,6 +54,33 @@ describe('tools store', () => {
     await useTools.getState().refresh();
 
     expect(useTools.getState().tools).toHaveLength(1);
+  });
+
+  it('opens the test browser, and closes it when it is open', async () => {
+    const status = (running: boolean) => ({
+      browser: 'Chrome',
+      running,
+      endpoint: 'http://127.0.0.1:9333',
+      connectors: [],
+    });
+    browserOpen.mockResolvedValueOnce(status(true));
+    browserClose.mockResolvedValueOnce(status(false));
+
+    await useTools.getState().toggleBrowser();
+    expect(useTools.getState().browser?.running).toBe(true);
+
+    await useTools.getState().toggleBrowser();
+    expect(useTools.getState().browser?.running).toBe(false);
+    expect(browserClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the reason when the test browser cannot start', async () => {
+    browserOpen.mockRejectedValueOnce('port 9333 is already in use');
+
+    await useTools.getState().toggleBrowser();
+
+    expect(useTools.getState().browserError).toContain('9333');
+    expect(useTools.getState().browser).toBeNull();
   });
 
   it('hides the bar when the user asks, even without storage', () => {

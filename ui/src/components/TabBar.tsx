@@ -6,6 +6,8 @@ interface TabBarProps {
   activeId: number | null;
   /** What a new tab can be: shells, agents, installs. */
   menu: MenuGroup[];
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
   onSelect: (id: number) => void;
   onClose: (id: number) => void;
   /** Opens a tab with the default shell. */
@@ -17,11 +19,24 @@ interface TabBarProps {
 const focusRing = 'outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
 /** The strip of tabs plus the controls that open new ones. Presentational only. */
-export function TabBar({ tabs, activeId, menu, onSelect, onClose, onNew, onPick }: TabBarProps) {
+export function TabBar(props: TabBarProps) {
+  const { tabs, activeId, menu, sidebarOpen, onToggleSidebar, onSelect, onClose, onNew, onPick } =
+    props;
   const items = menu.flatMap((group) => group.items);
 
   return (
     <header className="flex h-9 shrink-0 items-stretch border-b border-fg/10 text-sm">
+      <button
+        type="button"
+        aria-label="Proyectos"
+        aria-pressed={sidebarOpen}
+        title="Mostrar u ocultar los proyectos (Ctrl+Shift+B)"
+        onClick={onToggleSidebar}
+        className={`w-9 border-r border-fg/10 text-fg/60 hover:bg-fg/10 hover:text-fg ${focusRing}`}
+      >
+        ☰
+      </button>
+
       <div role="tablist" aria-label="Pestañas" className="flex min-w-0 items-stretch">
         {tabs.map((tab) => {
           const selected = tab.id === activeId;

@@ -10,6 +10,12 @@ use std::path::{Path, PathBuf};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 
+mod theme;
+mod workspace;
+
+pub use theme::{Theme, ANSI_NAMES};
+pub use workspace::{workspace_path, Project, SavedTerminal, Workspace};
+
 /// Format version this build writes and understands.
 pub const CURRENT_VERSION: u32 = 1;
 
@@ -17,7 +23,7 @@ pub const CURRENT_VERSION: u32 = 1;
 pub const DEFAULT_TOML: &str = include_str!("default.toml");
 
 /// Folder name under the system configuration directory.
-const APP_DIR: &str = "terminal";
+pub(crate) const APP_DIR: &str = "terminal";
 
 /// Why the configuration could not be loaded or watched.
 #[derive(Debug, thiserror::Error)]
@@ -30,6 +36,8 @@ pub enum ConfigError {
     UnsupportedVersion(u32),
     #[error("could not watch the configuration file: {0}")]
     Watch(#[from] notify::Error),
+    #[error("the saved projects could not be read or written: {0}")]
+    Workspace(serde_json::Error),
 }
 
 /// Everything the user can configure.
@@ -41,8 +49,13 @@ pub struct Config {
     pub default_shell: Option<String>,
     /// Lines of history kept per tab.
     pub scrollback: u32,
+    /// Space between the text and the edge of the window, in pixels.
+    pub padding: u16,
     pub font: Font,
+    pub cursor: Cursor,
     pub theme: Theme,
+    pub background: Background,
+    pub browser: Browser,
     /// Extra entries for the new-tab menu: any agent or tool that starts
     /// with a command.
     pub agents: Vec<CustomAgent>,
@@ -69,15 +82,39 @@ pub struct Font {
     pub line_height: f32,
 }
 
-/// Colours as CSS hex strings (`#RRGGBB` or `#RRGGBBAA`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Cursor {
+    pub style: CursorStyle,
+    pub blink: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CursorStyle {
+    Block,
+    Bar,
+    Underline,
+}
+
+/// A picture behind the text.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
-pub struct Theme {
-    pub background: String,
-    pub foreground: String,
-    pub cursor: String,
-    pub selection: String,
-    pub accent: String,
+pub struct Background {
+    /// Path of the image file. Empty means no image.
+    pub image: String,
+    /// How much the background colour covers the image: 0 shows the whole
+    /// image, 1 hides it. Text stays readable only with enough of it.
+    pub dim: f32,
+}
+
+/// The browser AI agents drive to test web apps.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Browser {
+    /// Local port agents connect to. Fixed, because agents store it when
+    /// the browser is registered with them.
+    pub port: u16,
 }
 
 impl Default for Config {
@@ -86,8 +123,12 @@ impl Default for Config {
             version: CURRENT_VERSION,
             default_shell: None,
             scrollback: 5000,
+            padding: 8,
             font: Font::default(),
+            cursor: Cursor::default(),
             theme: Theme::default(),
+            background: Background::default(),
+            browser: Browser::default(),
             agents: Vec::new(),
         }
     }
@@ -104,15 +145,27 @@ impl Default for Font {
     }
 }
 
-impl Default for Theme {
+impl Default for Cursor {
     fn default() -> Self {
         Self {
-            background: "#14161b".into(),
-            foreground: "#d7dae0".into(),
-            cursor: "#8ab4f8".into(),
-            selection: "#8ab4f84d".into(),
-            accent: "#8ab4f8".into(),
+            style: CursorStyle::Block,
+            blink: true,
         }
+    }
+}
+
+impl Default for Background {
+    fn default() -> Self {
+        Self {
+            image: String::new(),
+            dim: 0.75,
+        }
+    }
+}
+
+impl Default for Browser {
+    fn default() -> Self {
+        Self { port: 9333 }
     }
 }
 
@@ -212,6 +265,50 @@ mod tests {
         assert_eq!(config.theme.background, "#000000");
         assert_eq!(config.theme.foreground, Theme::default().foreground);
         assert_eq!(config.font, Font::default());
+    }
+
+    #[test]
+    fn reads_cursor_background_and_browser_settings() {
+        let config = Config::parse(
+            "[cursor]
+style = 'bar'
+blink = false
+[background]
+image = 'C:/fondos/noche.png'
+dim = 0.5
+[browser]
+port = 9400
+",
+        )
+        .unwrap();
+
+        assert_eq!(config.cursor.style, CursorStyle::Bar);
+        assert!(!config.cursor.blink);
+        assert_eq!(config.background.image, "C:/fondos/noche.png");
+        assert_eq!(config.background.dim, 0.5);
+        assert_eq!(config.browser.port, 9400);
+    }
+
+    #[test]
+    fn an_unknown_cursor_style_is_an_error() {
+        assert!(Config::parse(
+            "[cursor]
+style = 'wave'
+"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn a_theme_typo_is_reported_as_a_parse_error() {
+        assert!(matches!(
+            Config::parse(
+                "[theme]
+preset = 'neon'
+"
+            ),
+            Err(ConfigError::Parse(_))
+        ));
     }
 
     #[test]

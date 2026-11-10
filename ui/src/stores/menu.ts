@@ -1,4 +1,4 @@
-import type { AgentStatus, Config, ShellProfile } from '../ipc';
+import type { AgentStatus, BrowserStatus, Config, ShellProfile } from '../ipc';
 import type { TabOptions } from './tabs';
 
 /** One choice in the new-tab menu. */
@@ -19,7 +19,8 @@ export interface MenuGroup {
 
 /**
  * Everything a new tab can be: a shell, an installed agent, an agent the
- * user added in the configuration, or the install of a known agent.
+ * user added in the configuration, the install of a known agent, or the
+ * one-time step that gives an agent the test browser.
  *
  * An agent is not a kind of shell. Its tab is a normal shell tab that runs
  * the agent's command at start: the agent gets the user's environment, and
@@ -29,7 +30,9 @@ export function buildNewTabMenu(
   shells: ShellProfile[],
   agents: AgentStatus[],
   custom: Config['agents'],
+  connectors: BrowserStatus['connectors'] = [],
 ): MenuGroup[] {
+  const installed = agents.filter((agent) => agent.installed);
   const groups: MenuGroup[] = [
     {
       label: 'Shells',
@@ -38,13 +41,11 @@ export function buildNewTabMenu(
     {
       label: 'Agentes de IA',
       items: [
-        ...agents
-          .filter((agent) => agent.installed)
-          .map((agent) => ({
-            key: `agent:${agent.id}`,
-            label: agent.name,
-            options: { title: agent.name, initialCommand: agent.command },
-          })),
+        ...installed.map((agent) => ({
+          key: `agent:${agent.id}`,
+          label: agent.name,
+          options: { title: agent.name, initialCommand: agent.command },
+        })),
         ...custom.map((agent, index) => ({
           key: `custom:${index}`,
           label: agent.name,
@@ -63,11 +64,32 @@ export function buildNewTabMenu(
                 options: {
                   title: `Instalar ${agent.name}`,
                   initialCommand: agent.install_command,
+                  // An install is done once; it does not belong to a project.
+                  transient: true,
                 },
               },
             ]
           : [],
       ),
+    },
+    {
+      label: 'Navegador de pruebas',
+      items: connectors.flatMap((connector) => {
+        const agent = installed.find((candidate) => candidate.id === connector.agent_id);
+        return agent
+          ? [
+              {
+                key: `browser:${agent.id}`,
+                label: `Dar el navegador a ${agent.name}`,
+                options: {
+                  title: `Navegador para ${agent.name}`,
+                  initialCommand: connector.command,
+                  transient: true,
+                },
+              },
+            ]
+          : [];
+      }),
     },
   ];
   // An empty group would be a heading with nothing under it.

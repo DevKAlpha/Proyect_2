@@ -1,0 +1,10 @@
+[package]
+name = "term-browser"
+description = "The isolated browser AI agents drive to test web apps."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+which = "8"

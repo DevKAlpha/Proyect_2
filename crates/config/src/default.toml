@@ -11,6 +11,9 @@ version = 1
 # Líneas de historial que guarda cada pestaña.
 scrollback = 5000
 
+# Margen entre el texto y el borde de la ventana, en píxeles.
+padding = 8
+
 [font]
 # Se usa la primera fuente de la lista que esté disponible. JetBrains Mono
 # viene incluida en la terminal; las demás deben estar instaladas en el equipo.
@@ -20,14 +23,42 @@ size = 14
 # Alto de cada línea, como múltiplo del tamaño de la fuente.
 line_height = 1.2
 
+[cursor]
+# Forma: "block" (bloque), "bar" (barra) o "underline" (subrayado).
+style = "block"
+# Parpadeo.
+blink = true
+
 [theme]
-# Colores en hexadecimal: #RRGGBB, o #RRGGBBAA con transparencia.
-background = "#14161b"
-foreground = "#d7dae0"
-cursor = "#8ab4f8"
-selection = "#8ab4f84d"
+# Tema de partida: "dark", "light" o "high-contrast".
+preset = "dark"
+# Cualquier color de abajo sustituye al del tema. Quita el "#" inicial de la
+# línea y cambia el valor. Formato: #RRGGBB, o #RRGGBBAA con transparencia.
+# background = "#14161b"
+# foreground = "#d7dae0"
+# cursor = "#8ab4f8"
+# selection = "#8ab4f84d"
 # Color de la pestaña activa y del foco.
-accent = "#8ab4f8"
+# accent = "#8ab4f8"
+
+# Los 16 colores que usan los programas (errores en rojo, carpetas en azul...).
+# Nombres: black, red, green, yellow, blue, magenta, cyan, white, y los mismos
+# con "bright_" delante. Solo hace falta escribir los que quieras cambiar.
+# [theme.ansi]
+# red = "#f07178"
+# bright_blue = "#9dbcff"
+
+[background]
+# Imagen de fondo: ruta completa a un archivo PNG, JPG, WebP o GIF. Vacío = sin
+# imagen. En Windows usa comillas simples: 'C:\Users\tu\Imágenes\fondo.png'.
+# Se ve en las pestañas que abras después de cambiarla.
+image = ""
+# Cuánto tapa el color de fondo a la imagen: 0 = imagen entera, 1 = no se ve.
+dim = 0.75
+
+[browser]
+# Puerto local del navegador de pruebas que controlan los agentes de IA.
+port = 9333
 
 # Agentes de IA y herramientas propias. Aparecen en el menú de pestaña nueva
 # (la flecha junto al +). Los agentes conocidos (Claude Code, Codex, Gemini CLI,

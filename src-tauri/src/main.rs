@@ -10,9 +10,12 @@
 mod commands;
 mod state;
 
+use tauri::{Manager, RunEvent};
+
 fn main() {
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(state::AppState::load())
         .setup(|app| {
@@ -24,11 +27,25 @@ fn main() {
             commands::list_tools,
             commands::list_agents,
             commands::get_config,
+            commands::open_config_file,
+            commands::read_background,
+            commands::load_workspace,
+            commands::save_workspace,
+            commands::pick_folder,
+            commands::browser_status,
+            commands::browser_open,
+            commands::browser_close,
             commands::pty_spawn,
             commands::pty_write,
             commands::pty_resize,
             commands::pty_kill,
         ])
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("the application failed to start");
+
+    app.run(|handle, event| {
+        if let RunEvent::Exit = event {
+            handle.state::<state::AppState>().close_browser();
+        }
+    });
 }

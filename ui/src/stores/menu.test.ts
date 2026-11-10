@@ -63,6 +63,32 @@ describe('buildNewTabMenu', () => {
     expect(Object.keys(labels(menu))).toEqual(['Shells']);
   });
 
+  it('marks installs as one-off, so a project does not save them', () => {
+    const menu = buildNewTabMenu(shells, [agent('codex', false)], []);
+
+    expect(menu[1]!.items[0]!.options?.transient).toBe(true);
+  });
+
+  it('offers the test browser only to installed agents that can use it', () => {
+    const connectors = [
+      { agent_id: 'claude', command: 'claude mcp add test-browser' },
+      { agent_id: 'codex', command: 'codex mcp add test-browser' },
+    ];
+    const menu = buildNewTabMenu(
+      shells,
+      [agent('claude', true), agent('codex', false)],
+      [],
+      connectors,
+    );
+    const group = menu.find((candidate) => candidate.label === 'Navegador de pruebas')!;
+
+    expect(group.items.map((item) => item.label)).toEqual(['Dar el navegador a CLAUDE']);
+    expect(group.items[0]!.options).toMatchObject({
+      initialCommand: 'claude mcp add test-browser',
+      transient: true,
+    });
+  });
+
   it('gives every item a different key', () => {
     const menu = buildNewTabMenu(
       shells,

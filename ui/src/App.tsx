@@ -1,24 +1,55 @@
 import { useEffect, useMemo } from 'react';
+import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { TerminalPane } from './components/TerminalPane';
 import { ToolsBar } from './components/ToolsBar';
-import type { ShellProfile, ToolStatus } from './ipc';
+import {
+  loadWorkspace,
+  openConfigFile,
+  pickFolder,
+  saveWorkspace,
+  type ShellProfile,
+  type ToolStatus,
+} from './ipc';
 import { buildNewTabMenu, type MenuItem } from './stores/menu';
 import { pickDefaultShell, useSettings } from './stores/settings';
-import { useTabs, type TabOptions } from './stores/tabs';
+import { persistWorkspace, tabsOf, useTabs, type TabOptions } from './stores/tabs';
 import { missingTools, useTools } from './stores/tools';
 
-/** Opens a tab with `shell`, or with the default shell when omitted. */
+/**
+ * Opens a terminal in the project on screen, with `shell` or with the
+ * default shell when omitted.
+ */
 function openTab(shell?: ShellProfile, options?: TabOptions) {
   const { config, shells } = useSettings.getState();
   const target = shell ?? (config && pickDefaultShell(config, shells));
   if (target) useTabs.getState().open(target, options);
 }
 
+/** Opens a default terminal in the given project. */
+function openTabIn(projectId: string | null) {
+  useTabs.getState().selectProject(projectId);
+  openTab();
+}
+
 /** Installs a missing tool in a tab of its own, so the user sees every step. */
 function installTool(tool: ToolStatus) {
   if (!tool.install_command) return;
-  openTab(undefined, { title: `Instalar ${tool.name}`, initialCommand: tool.install_command });
+  openTab(undefined, {
+    title: `Instalar ${tool.name}`,
+    initialCommand: tool.install_command,
+    transient: true,
+  });
+}
+
+/** Creates a project for a folder the user picks, with a first terminal. */
+async function addProject() {
+  const path = await pickFolder();
+  if (!path) return;
+  // The folder's own name is the obvious first name; the user can change it.
+  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+  useTabs.getState().addProject(name, path);
+  openTab();
 }
 
 const pickFromMenu = (item: MenuItem) => openTab(item.shell, item.options);
@@ -32,6 +63,13 @@ async function start() {
   if (started) return;
   started = true;
   await useSettings.getState().load();
+  try {
+    useTabs.getState().restore(await loadWorkspace());
+  } catch {
+    // Without saved projects the terminal still opens.
+  }
+  // From here on, every change of projects or their terminals is saved.
+  persistWorkspace((workspace) => void saveWorkspace(workspace));
   openTab();
   refreshTools();
 }
@@ -52,6 +90,7 @@ function handleShortcut(event: KeyboardEvent) {
   else if (key === '0' && !event.shiftKey) settings.resetZoom();
   else if (event.shiftKey && key === 't') openTab();
   else if (event.shiftKey && key === 'w' && tabs.activeId !== null) tabs.close(tabs.activeId);
+  else if (event.shiftKey && key === 'b') settings.toggleSidebar();
   else if (key === 'tab') tabs.cycle(event.shiftKey ? -1 : 1);
   else return;
 
@@ -64,24 +103,36 @@ export function App() {
   const shells = useSettings((state) => state.shells);
   const configError = useSettings((state) => state.configError);
   const dismissConfigError = useSettings((state) => state.dismissConfigError);
+  const backgroundUrl = useSettings((state) => state.backgroundUrl);
+  const sidebarOpen = useSettings((state) => state.sidebarOpen);
+  const toggleSidebar = useSettings((state) => state.toggleSidebar);
   const tabs = useTabs((state) => state.tabs);
+  const projects = useTabs((state) => state.projects);
+  const activeProjectId = useTabs((state) => state.activeProjectId);
   const activeId = useTabs((state) => state.activeId);
-  const activate = useTabs((state) => state.activate);
-  const close = useTabs((state) => state.close);
+  const store = useTabs.getState();
   const tools = useTools((state) => state.tools);
   const agents = useTools((state) => state.agents);
-  const menu = useMemo(
-    () => buildNewTabMenu(shells, agents, config?.agents ?? []),
-    [shells, agents, config],
-  );
+  const browser = useTools((state) => state.browser);
+  const browserError = useTools((state) => state.browserError);
+  const toggleBrowser = useTools((state) => state.toggleBrowser);
   const toolsHidden = useTools((state) => state.hidden);
   const hideTools = useTools((state) => state.hide);
+
+  const menu = useMemo(
+    () => buildNewTabMenu(shells, agents, config?.agents ?? [], browser?.connectors),
+    [shells, agents, config, browser],
+  );
+  // The tab bar shows one project at a time; the sidebar shows all of them.
+  const visibleTabs = useMemo(() => tabsOf(tabs, activeProjectId), [tabs, activeProjectId]);
+  const activeProject = projects.find((project) => project.id === activeProjectId);
 
   useEffect(() => {
     void start();
     window.addEventListener('keydown', handleShortcut, true);
     // Installers take the focus (administrator prompt, setup window). When it
-    // comes back, the tool may be there.
+    // comes back, the tool may be there. The same goes for the test browser:
+    // the user may have closed its window.
     window.addEventListener('focus', refreshTools);
     return () => {
       window.removeEventListener('keydown', handleShortcut, true);
@@ -104,58 +155,96 @@ export function App() {
   }, [config]);
 
   return (
-    <div className="flex h-full flex-col bg-bg text-fg">
-      <TabBar
-        tabs={tabs}
-        activeId={activeId}
-        menu={menu}
-        onSelect={activate}
-        onClose={close}
-        onNew={openTab}
-        onPick={pickFromMenu}
-      />
-
-      {!toolsHidden && (
-        <ToolsBar missing={missingTools(tools)} onInstall={installTool} onHide={hideTools} />
+    <div className="flex h-full bg-bg text-fg">
+      {sidebarOpen && (
+        <Sidebar
+          projects={projects}
+          tabs={tabs}
+          activeProjectId={activeProjectId}
+          activeId={activeId}
+          browser={browser}
+          browserError={browserError}
+          onSelectProject={store.selectProject}
+          onAddProject={() => void addProject()}
+          onRenameProject={store.renameProject}
+          onRemoveProject={store.removeProject}
+          onNewTab={openTabIn}
+          onActivateTab={store.activate}
+          onRenameTab={store.rename}
+          onCloseTab={store.close}
+          onToggleBrowser={() => void toggleBrowser()}
+          onOpenConfig={() => void openConfigFile()}
+        />
       )}
 
-      {configError && (
-        <div role="alert" className="flex items-start gap-3 bg-fg/10 px-3 py-2 text-sm select-text">
-          <p className="min-w-0 flex-1">
-            El archivo de configuración tiene un error y se mantiene la configuración anterior:{' '}
-            {configError}
-          </p>
-          <button
-            type="button"
-            onClick={dismissConfigError}
-            className="shrink-0 underline outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      <div className="flex min-w-0 flex-1 flex-col">
+        <TabBar
+          tabs={visibleTabs}
+          activeId={activeId}
+          menu={menu}
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={toggleSidebar}
+          onSelect={store.activate}
+          onClose={store.close}
+          onNew={openTab}
+          onPick={pickFromMenu}
+        />
+
+        {!toolsHidden && (
+          <ToolsBar missing={missingTools(tools)} onInstall={installTool} onHide={hideTools} />
+        )}
+
+        {configError && (
+          <div
+            role="alert"
+            className="flex items-start gap-3 bg-fg/10 px-3 py-2 text-sm select-text"
           >
-            Cerrar
-          </button>
-        </div>
-      )}
-
-      <main className="relative min-h-0 flex-1">
-        {tabs.map((tab) => (
-          <TerminalPane key={tab.id} tab={tab} active={tab.id === activeId} />
-        ))}
-
-        {config && tabs.length === 0 && (
-          <div className="grid h-full place-items-center text-sm text-fg/60">
-            {shells.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => openTab()}
-                className="rounded border border-fg/20 px-4 py-2 outline-none hover:bg-fg/10 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent"
-              >
-                Nueva pestaña
-              </button>
-            ) : (
-              <p>No se encontró ningún shell instalado en este equipo.</p>
-            )}
+            <p className="min-w-0 flex-1">
+              El archivo de configuración tiene un error y se mantiene la configuración anterior:{' '}
+              {configError}
+            </p>
+            <button
+              type="button"
+              onClick={dismissConfigError}
+              className="shrink-0 underline outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              Cerrar
+            </button>
           </div>
         )}
-      </main>
+
+        <main
+          className="relative min-h-0 flex-1 bg-cover bg-center"
+          style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl}")` } : undefined}
+        >
+          {/* Every started terminal stays mounted, also those of other
+              projects: switching project must not stop what runs in them. */}
+          {tabs
+            .filter((tab) => tab.started)
+            .map((tab) => (
+              <TerminalPane key={tab.id} tab={tab} active={tab.id === activeId} />
+            ))}
+
+          {config && visibleTabs.length === 0 && (
+            <div className="grid h-full place-items-center text-sm text-fg/60">
+              {shells.length > 0 ? (
+                <div className="text-center">
+                  {activeProject && <p className="mb-3 select-text">{activeProject.path}</p>}
+                  <button
+                    type="button"
+                    onClick={() => openTab()}
+                    className="rounded border border-fg/20 px-4 py-2 outline-none hover:bg-fg/10 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent"
+                  >
+                    Nueva terminal
+                  </button>
+                </div>
+              ) : (
+                <p>No se encontró ningún shell instalado en este equipo.</p>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
