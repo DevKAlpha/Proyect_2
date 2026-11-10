@@ -1,0 +1,17 @@
+[package]
+name = "terminal-app"
+description = "Desktop shell of the terminal: window, IPC commands and events."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+dirs = "6"
+tauri = { version = "2", features = [] }
+tauri-plugin-clipboard-manager = "2"
+term-config = { path = "../crates/config" }
+term-pty = { path = "../crates/pty" }
+term-shell = { path = "../crates/shell" }

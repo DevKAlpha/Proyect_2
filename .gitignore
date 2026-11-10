@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+target/
+*.tsbuildinfo
+src-tauri/gen/schemas/
+
+# Env files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Tooling
+coverage/

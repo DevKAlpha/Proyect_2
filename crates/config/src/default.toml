@@ -1,0 +1,26 @@
+# Terminal: configuración.
+# Los cambios se aplican al guardar, sin reiniciar la aplicación.
+
+# Versión del formato de este archivo. No la cambies a mano.
+version = 1
+
+# Shell de las pestañas nuevas: "pwsh", "powershell", "cmd", "git-bash", "wsl",
+# "bash", "zsh" o "fish". Sin valor se usa el primero que se encuentre.
+# default_shell = "pwsh"
+
+# Líneas de historial que guarda cada pestaña.
+scrollback = 5000
+
+[font]
+# Se usa la primera fuente de la lista que esté instalada.
+family = "Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+size = 14
+
+[theme]
+# Colores en hexadecimal: #RRGGBB, o #RRGGBBAA con transparencia.
+background = "#14161b"
+foreground = "#d7dae0"
+cursor = "#8ab4f8"
+selection = "#8ab4f84d"
+# Color de la pestaña activa y del foco.
+accent = "#8ab4f8"

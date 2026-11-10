@@ -1,0 +1,40 @@
+@import 'tailwindcss';
+@import '@xterm/xterm/css/xterm.css';
+
+/*
+ * The user's theme arrives from the configuration file at runtime (App.tsx
+ * sets these variables). The values here only cover the first frame and match
+ * the defaults in crates/config.
+ */
+:root {
+  --term-bg: #14161b;
+  --term-fg: #d7dae0;
+  --term-accent: #8ab4f8;
+}
+
+/* Expose them as Tailwind colours: bg-bg, text-fg, border-accent, bg-fg/10... */
+@theme inline {
+  --color-bg: var(--term-bg);
+  --color-fg: var(--term-fg);
+  --color-accent: var(--term-accent);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--term-bg);
+  color: var(--term-fg);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  /* It is an app, not a page: text is selected inside the terminal only. */
+  user-select: none;
+}

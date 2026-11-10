@@ -1,0 +1,10 @@
+[package]
+name = "term-shell"
+description = "Finds the shells installed on this machine."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+which = "8"
