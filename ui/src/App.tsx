@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { TabBar } from './components/TabBar';
 import { TerminalPane } from './components/TerminalPane';
 import { ToolsBar } from './components/ToolsBar';
 import type { ShellProfile, ToolStatus } from './ipc';
+import { buildNewTabMenu, type MenuItem } from './stores/menu';
 import { pickDefaultShell, useSettings } from './stores/settings';
 import { useTabs, type TabOptions } from './stores/tabs';
 import { missingTools, useTools } from './stores/tools';
@@ -19,6 +20,8 @@ function installTool(tool: ToolStatus) {
   if (!tool.install_command) return;
   openTab(undefined, { title: `Instalar ${tool.name}`, initialCommand: tool.install_command });
 }
+
+const pickFromMenu = (item: MenuItem) => openTab(item.shell, item.options);
 
 const refreshTools = () => void useTools.getState().refresh();
 
@@ -66,6 +69,11 @@ export function App() {
   const activate = useTabs((state) => state.activate);
   const close = useTabs((state) => state.close);
   const tools = useTools((state) => state.tools);
+  const agents = useTools((state) => state.agents);
+  const menu = useMemo(
+    () => buildNewTabMenu(shells, agents, config?.agents ?? []),
+    [shells, agents, config],
+  );
   const toolsHidden = useTools((state) => state.hidden);
   const hideTools = useTools((state) => state.hide);
 
@@ -100,10 +108,11 @@ export function App() {
       <TabBar
         tabs={tabs}
         activeId={activeId}
-        shells={shells}
+        menu={menu}
         onSelect={activate}
         onClose={close}
         onNew={openTab}
+        onPick={pickFromMenu}
       />
 
       {!toolsHidden && (

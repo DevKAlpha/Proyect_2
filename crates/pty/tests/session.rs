@@ -93,3 +93,57 @@ fn missing_program_is_an_error() {
 
     assert!(PtySession::spawn(options, |_| {}, |_| {}).is_err());
 }
+
+/// ConPTY used to hand programs a broken character for anything above U+FFFF.
+#[cfg(windows)]
+#[test]
+fn an_emoji_typed_by_the_user_reaches_the_program_intact() {
+    let options = SpawnOptions {
+        program: "powershell.exe".into(),
+        args: vec![
+            "-NoProfile".into(),
+            "-Command".into(),
+            // Prints the UTF-8 bytes of the line it reads, in hex.
+            r#"$x = Read-Host; ([Text.Encoding]::UTF8.GetBytes($x) | % { $_.ToString('x2') }) -join ' '; 'END'"#.into(),
+        ],
+        cwd: None,
+        env: vec![],
+        cols: 80,
+        rows: 24,
+    };
+    let (data_tx, data_rx) = mpsc::channel::<Vec<u8>>();
+    let mut session = PtySession::spawn(
+        options,
+        move |bytes| {
+            let _ = data_tx.send(bytes.to_vec());
+        },
+        |_| {},
+    )
+    .expect("shell starts");
+
+    let deadline = Instant::now() + TIMEOUT;
+    let mut output = String::new();
+    let mut typed = false;
+    while !output.contains("END") {
+        assert!(Instant::now() < deadline, "timed out; output: {output:?}");
+        match data_rx.recv_timeout(Duration::from_millis(300)) {
+            Ok(chunk) => {
+                let text = String::from_utf8_lossy(&chunk);
+                if text.contains(CURSOR_QUERY) {
+                    session.write(CURSOR_ANSWER).expect("answer is written");
+                }
+                output.push_str(&text);
+            }
+            // Output went quiet: the shell is waiting for the line.
+            Err(_) if !typed => {
+                typed = true;
+                session
+                    .write("a🚀z\r".as_bytes())
+                    .expect("input is written");
+            }
+            Err(_) => {}
+        }
+    }
+
+    assert!(output.contains("61 f0 9f 9a 80 7a"), "output: {output:?}");
+}

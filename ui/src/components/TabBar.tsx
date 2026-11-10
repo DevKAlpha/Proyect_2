@@ -1,20 +1,25 @@
-import type { ShellProfile } from '../ipc';
+import type { MenuGroup, MenuItem } from '../stores/menu';
 import type { Tab } from '../stores/tabs';
 
 interface TabBarProps {
   tabs: Tab[];
   activeId: number | null;
-  shells: ShellProfile[];
+  /** What a new tab can be: shells, agents, installs. */
+  menu: MenuGroup[];
   onSelect: (id: number) => void;
   onClose: (id: number) => void;
-  /** Opens a tab with `shell`, or with the default shell when omitted. */
-  onNew: (shell?: ShellProfile) => void;
+  /** Opens a tab with the default shell. */
+  onNew: () => void;
+  /** Opens the tab the user chose in the menu. */
+  onPick: (item: MenuItem) => void;
 }
 
 const focusRing = 'outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
 /** The strip of tabs plus the controls that open new ones. Presentational only. */
-export function TabBar({ tabs, activeId, shells, onSelect, onClose, onNew }: TabBarProps) {
+export function TabBar({ tabs, activeId, menu, onSelect, onClose, onNew, onPick }: TabBarProps) {
+  const items = menu.flatMap((group) => group.items);
+
   return (
     <header className="flex h-9 shrink-0 items-stretch border-b border-fg/10 text-sm">
       <div role="tablist" aria-label="Pestañas" className="flex min-w-0 items-stretch">
@@ -56,31 +61,35 @@ export function TabBar({ tabs, activeId, shells, onSelect, onClose, onNew }: Tab
         type="button"
         aria-label="Nueva pestaña"
         title="Nueva pestaña (Ctrl+Shift+T)"
-        onClick={() => onNew()}
+        onClick={onNew}
         className={`w-9 text-lg text-fg/60 hover:bg-fg/10 hover:text-fg ${focusRing}`}
       >
         +
       </button>
 
-      {shells.length > 1 && (
+      {items.length > 1 && (
         // A native select: keyboard and screen-reader support for free.
         <select
-          aria-label="Nueva pestaña con otro shell"
-          title="Nueva pestaña con otro shell"
+          aria-label="Nueva pestaña con un shell o un agente"
+          title="Nueva pestaña con un shell o un agente"
           value=""
           onChange={(event) => {
-            const shell = shells.find((candidate) => candidate.id === event.target.value);
-            if (shell) onNew(shell);
+            const item = items.find((candidate) => candidate.key === event.target.value);
+            if (item) onPick(item);
           }}
           className={`w-6 cursor-pointer appearance-none bg-transparent text-center text-fg/60 hover:bg-fg/10 hover:text-fg ${focusRing}`}
         >
           <option value="" disabled hidden>
             ▾
           </option>
-          {shells.map((shell) => (
-            <option key={shell.id} value={shell.id} className="bg-bg text-fg">
-              {shell.name}
-            </option>
+          {menu.map((group) => (
+            <optgroup key={group.label} label={group.label} className="bg-bg text-fg">
+              {group.items.map((item) => (
+                <option key={item.key} value={item.key} className="bg-bg text-fg">
+                  {item.label}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
       )}

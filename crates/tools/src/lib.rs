@@ -10,8 +10,10 @@ use std::ffi::OsString;
 
 use serde::Serialize;
 
+mod agents;
 mod path;
 
+pub use agents::{detect_agents, detect_agents_with, AgentStatus};
 pub use path::fresh_path;
 
 /// A tool and whether this machine has it.
@@ -84,8 +86,13 @@ const TOOLS: &[Tool] = &[
 /// Uses [`fresh_path`], so a tool installed while the app is open is found
 /// without a restart.
 pub fn detect() -> Vec<ToolStatus> {
+    detect_with(&system_lookup())
+}
+
+/// A lookup against the PATH a new tab would get.
+fn system_lookup() -> impl Fn(&str) -> bool {
     let path = fresh_path().or_else(|| std::env::var_os("PATH"));
-    detect_with(&|program| on_path(program, path.as_ref()))
+    move |program| on_path(program, path.as_ref())
 }
 
 /// Same as [`detect`], with the PATH lookup supplied by the caller.

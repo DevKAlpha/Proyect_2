@@ -28,3 +28,12 @@ cursor = "#8ab4f8"
 selection = "#8ab4f84d"
 # Color de la pestaña activa y del foco.
 accent = "#8ab4f8"
+
+# Agentes de IA y herramientas propias. Aparecen en el menú de pestaña nueva
+# (la flecha junto al +). Los agentes conocidos (Claude Code, Codex, Gemini CLI,
+# OpenCode, GitHub Copilot CLI) se detectan solos; aquí van los demás.
+# Quita los "#" y repite el bloque por cada uno:
+#
+# [[agents]]
+# name = "Aider"
+# command = "aider"

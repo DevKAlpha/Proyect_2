@@ -43,6 +43,19 @@ pub struct Config {
     pub scrollback: u32,
     pub font: Font,
     pub theme: Theme,
+    /// Extra entries for the new-tab menu: any agent or tool that starts
+    /// with a command.
+    pub agents: Vec<CustomAgent>,
+}
+
+/// A command the user wants one click away, for example an AI agent that
+/// the app does not know.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CustomAgent {
+    /// Name shown in the menu and on the tab.
+    pub name: String,
+    /// What to type in the shell to start it.
+    pub command: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -75,6 +88,7 @@ impl Default for Config {
             scrollback: 5000,
             font: Font::default(),
             theme: Theme::default(),
+            agents: Vec::new(),
         }
     }
 }
@@ -198,6 +212,22 @@ mod tests {
         assert_eq!(config.theme.background, "#000000");
         assert_eq!(config.theme.foreground, Theme::default().foreground);
         assert_eq!(config.font, Font::default());
+    }
+
+    #[test]
+    fn reads_agents_added_by_the_user() {
+        let config =
+            Config::parse("[[agents]]\nname = \"Aider\"\ncommand = \"aider --model sonnet\"\n")
+                .unwrap();
+
+        assert_eq!(config.agents.len(), 1);
+        assert_eq!(config.agents[0].name, "Aider");
+        assert_eq!(config.agents[0].command, "aider --model sonnet");
+    }
+
+    #[test]
+    fn an_agent_without_a_command_is_an_error() {
+        assert!(Config::parse("[[agents]]\nname = \"Aider\"\n").is_err());
     }
 
     #[test]

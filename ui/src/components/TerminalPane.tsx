@@ -1,11 +1,21 @@
 import { useEffect, useRef } from 'react';
 import { readText, writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { FitAddon } from '@xterm/addon-fit';
+import { Unicode11Addon } from '@xterm/addon-unicode11';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type ITerminalOptions } from '@xterm/xterm';
-import { killPty, resizePty, spawnPty, writePty, type Config } from '../ipc';
+import { killPty, openExternal, resizePty, spawnPty, writePty, type Config } from '../ipc';
 import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
 import { useTabs, type Tab } from '../stores/tabs';
+
+/**
+ * Opens a link from the terminal. Ctrl (or Cmd) must be held, as in other
+ * terminals: a plain click is how text is selected and must not leave the app.
+ */
+function followLink(event: MouseEvent, url: string) {
+  if (event.ctrlKey || event.metaKey) void openExternal(url);
+}
 
 /** The part of the user's configuration that xterm.js draws. */
 function terminalOptions(config: Config, zoom: number): ITerminalOptions {
@@ -29,14 +39,23 @@ function terminalOptions(config: Config, zoom: number): ITerminalOptions {
 }
 
 /**
- * Copy and paste keys. Returns `false` for the keys it handles so xterm.js
+ * Keys the terminal handles itself. Returns `false` for them so xterm.js
  * does not also send them to the shell.
+ *
+ * Shift+Enter is sent as Escape + Enter. A terminal has no code of its own
+ * for it, and this is the one AI agents (Claude Code and others) read as
+ * "new line, do not send yet". Shells treat it as a plain Enter.
  *
  * Ctrl+C copies only when text is selected; otherwise it stays the interrupt
  * key. Ctrl+Shift+C and Ctrl+Shift+V always mean copy and paste.
  */
-function clipboardKeys(term: Terminal) {
+function terminalKeys(term: Terminal) {
   return (event: KeyboardEvent): boolean => {
+    if (event.key === 'Enter' && event.shiftKey && !event.ctrlKey && !event.altKey) {
+      // Also swallow the key press and key up, or Enter would follow.
+      if (event.type === 'keydown') term.input('\x1b\r', true);
+      return false;
+    }
     if (event.type !== 'keydown' || !event.ctrlKey || event.altKey) return true;
     const key = event.key.toLowerCase();
 
@@ -85,7 +104,17 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
     const term = new Terminal({
       ...terminalOptions(initial.config, initial.zoom),
       cursorBlink: true,
+      // Needed by the Unicode addon below.
+      allowProposedApi: true,
+      // Links that programs mark themselves (OSC 8), common in agent output.
+      linkHandler: { activate: followLink },
     });
+    // Agents draw their screens with emoji and wide characters. Without the
+    // current width tables the cursor drifts and boxes break.
+    term.loadAddon(new Unicode11Addon());
+    term.unicode.activeVersion = '11';
+    // Plain web addresses in the output, for example a sign-in link.
+    term.loadAddon(new WebLinksAddon(followLink));
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(host);
@@ -99,7 +128,7 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       // No WebGL2 on this machine: the DOM renderer is already active.
     }
     fit.fit();
-    term.attachCustomKeyEventHandler(clipboardKeys(term));
+    term.attachCustomKeyEventHandler(terminalKeys(term));
     termRef.current = term;
     fitRef.current = fit;
 

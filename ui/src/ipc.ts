@@ -6,6 +6,7 @@
  */
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { openUrl } from '@tauri-apps/plugin-opener';
 
 /** A shell the terminal can open in a tab. */
 export interface ShellProfile {
@@ -29,6 +30,20 @@ export interface Config {
     selection: string;
     accent: string;
   };
+  /** Agents or tools the user added to the new-tab menu. */
+  agents: { name: string; command: string }[];
+}
+
+/** A known AI agent (Claude Code, Codex...) and whether this machine has it. */
+export interface AgentStatus {
+  id: string;
+  name: string;
+  /** What to type in a shell to start it. */
+  command: string;
+  installed: boolean;
+  /** Command that installs it, or `null` when npm is missing. */
+  install_command: string | null;
+  website: string;
 }
 
 /** A developer tool (Node.js, Docker) and whether this machine has it. */
@@ -48,7 +63,19 @@ export const listShells = () => invoke<ShellProfile[]>('list_shells');
 /** Checks the machine again on every call. */
 export const listTools = () => invoke<ToolStatus[]>('list_tools');
 
+/** Checks the machine again on every call. */
+export const listAgents = () => invoke<AgentStatus[]>('list_agents');
+
 export const getConfig = () => invoke<Config>('get_config');
+
+/**
+ * Opens a link printed in the terminal in the system browser. Program output
+ * is not trusted: only web links are opened, never files or other schemes.
+ */
+export async function openExternal(url: string): Promise<void> {
+  const scheme = url.slice(0, url.indexOf(':')).toLowerCase();
+  if (scheme === 'http' || scheme === 'https') await openUrl(url);
+}
 
 /** Runs `handler` with the new configuration after each valid edit of the file. */
 export const onConfigChanged = (handler: (config: Config) => void): Promise<UnlistenFn> =>

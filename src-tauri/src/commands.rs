@@ -5,7 +5,7 @@ use tauri::State;
 use term_config::Config;
 use term_pty::{PtySession, SpawnOptions};
 use term_shell::ShellProfile;
-use term_tools::ToolStatus;
+use term_tools::{AgentStatus, ToolStatus};
 
 use crate::state::AppState;
 
@@ -20,6 +20,12 @@ pub fn list_shells(state: State<'_, AppState>) -> Vec<ShellProfile> {
 #[tauri::command]
 pub fn list_tools() -> Vec<ToolStatus> {
     term_tools::detect()
+}
+
+/// Known AI agents and whether each one is installed. Checked on every call.
+#[tauri::command]
+pub fn list_agents() -> Vec<AgentStatus> {
+    term_tools::detect_agents()
 }
 
 #[tauri::command]

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ToolStatus } from '../ipc';
 
 const listTools = vi.fn<() => Promise<ToolStatus[]>>();
-vi.mock('../ipc', () => ({ listTools }));
+vi.mock('../ipc', () => ({ listTools, listAgents: async () => [] }));
 
 const { missingTools, useTools } = await import('./tools');
 

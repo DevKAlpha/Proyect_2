@@ -125,6 +125,8 @@ impl PtySession {
 
     /// Sends input (keystrokes or pasted text) to the shell.
     pub fn write(&mut self, data: &[u8]) -> Result<(), PtyError> {
+        #[cfg(windows)]
+        let data = &*win32_input::encode(data);
         self.writer.write_all(data)?;
         self.writer.flush()?;
         Ok(())
@@ -142,6 +144,74 @@ impl Drop for PtySession {
     fn drop(&mut self) {
         // Already-exited processes return an error here; nothing to do.
         let _ = self.killer.kill();
+    }
+}
+
+/// Input fix for ConPTY.
+///
+/// ConPTY turns the UTF-8 it receives into Windows key events, and it loses
+/// the first half of every character that needs two UTF-16 units (emoji and
+/// other characters above U+FFFF): the program reads a broken character.
+/// Sending those characters in the "win32 input mode" format, one key event
+/// per UTF-16 unit, gets them through intact.
+#[cfg(any(windows, test))]
+mod win32_input {
+    use std::borrow::Cow;
+    use std::fmt::Write;
+
+    /// Rewrites characters above U+FFFF as key events. Everything else,
+    /// including bytes that are not UTF-8, passes through untouched.
+    pub fn encode(data: &[u8]) -> Cow<'_, [u8]> {
+        let Ok(text) = std::str::from_utf8(data) else {
+            return Cow::Borrowed(data);
+        };
+        if text.chars().all(|c| c.len_utf16() == 1) {
+            return Cow::Borrowed(data);
+        }
+        let mut out = String::with_capacity(text.len() * 2);
+        for c in text.chars() {
+            if c.len_utf16() == 1 {
+                out.push(c);
+                continue;
+            }
+            let mut units = [0u16; 2];
+            for unit in c.encode_utf16(&mut units) {
+                // CSI Vk ; Sc ; Uc ; Kd ; Cs ; Rc _  (a key press that
+                // carries only the character `Uc`).
+                let _ = write!(out, "\x1b[0;0;{unit};1;0;1_");
+            }
+        }
+        Cow::Owned(out.into_bytes())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::encode;
+        use std::borrow::Cow;
+
+        #[test]
+        fn text_in_the_basic_plane_is_not_copied_or_changed() {
+            let input = "ls -la résumé 日本\r".as_bytes();
+
+            assert!(matches!(encode(input), Cow::Borrowed(same) if same == input));
+        }
+
+        #[test]
+        fn an_emoji_becomes_one_key_event_per_utf16_unit() {
+            let encoded = encode("a🚀z".as_bytes());
+
+            assert_eq!(
+                String::from_utf8_lossy(&encoded),
+                "a\x1b[0;0;55357;1;0;1_\x1b[0;0;56960;1;0;1_z"
+            );
+        }
+
+        #[test]
+        fn bytes_that_are_not_utf8_pass_through() {
+            let input = [0xff, 0xfe, b'a'];
+
+            assert_eq!(&*encode(&input), &input);
+        }
     }
 }
 
