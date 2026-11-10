@@ -1,5 +1,10 @@
 @import 'tailwindcss';
 @import '@xterm/xterm/css/xterm.css';
+/* The default terminal font ships with the app, so text looks the same on
+   every system. Bold and italic are real faces: synthesised ones look blurry. */
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/400-italic.css';
+@import '@fontsource/jetbrains-mono/700.css';
 
 /*
  * The user's theme arrives from the configuration file at runtime (App.tsx

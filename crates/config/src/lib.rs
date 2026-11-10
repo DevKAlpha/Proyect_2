@@ -48,9 +48,12 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Font {
-    /// CSS font list: the first installed family wins.
+    /// CSS font list: the first available family wins. JetBrains Mono ships
+    /// with the app, so it is available on every system.
     pub family: String,
     pub size: u16,
+    /// Height of a row as a multiple of the font size.
+    pub line_height: f32,
 }
 
 /// Colours as CSS hex strings (`#RRGGBB` or `#RRGGBBAA`).
@@ -79,8 +82,10 @@ impl Default for Config {
 impl Default for Font {
     fn default() -> Self {
         Self {
-            family: "Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace".into(),
+            family: "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+                .into(),
             size: 14,
+            line_height: 1.2,
         }
     }
 }

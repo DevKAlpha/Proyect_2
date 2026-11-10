@@ -20,6 +20,7 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::list_shells,
+            commands::list_tools,
             commands::get_config,
             commands::pty_spawn,
             commands::pty_write,

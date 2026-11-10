@@ -1,16 +1,26 @@
 import { useEffect } from 'react';
 import { TabBar } from './components/TabBar';
 import { TerminalPane } from './components/TerminalPane';
-import type { ShellProfile } from './ipc';
+import { ToolsBar } from './components/ToolsBar';
+import type { ShellProfile, ToolStatus } from './ipc';
 import { pickDefaultShell, useSettings } from './stores/settings';
-import { useTabs } from './stores/tabs';
+import { useTabs, type TabOptions } from './stores/tabs';
+import { missingTools, useTools } from './stores/tools';
 
 /** Opens a tab with `shell`, or with the default shell when omitted. */
-function openTab(shell?: ShellProfile) {
+function openTab(shell?: ShellProfile, options?: TabOptions) {
   const { config, shells } = useSettings.getState();
   const target = shell ?? (config && pickDefaultShell(config, shells));
-  if (target) useTabs.getState().open(target);
+  if (target) useTabs.getState().open(target, options);
 }
+
+/** Installs a missing tool in a tab of its own, so the user sees every step. */
+function installTool(tool: ToolStatus) {
+  if (!tool.install_command) return;
+  openTab(undefined, { title: `Instalar ${tool.name}`, initialCommand: tool.install_command });
+}
+
+const refreshTools = () => void useTools.getState().refresh();
 
 // React runs effects twice in development; the app must still start once.
 let started = false;
@@ -20,6 +30,7 @@ async function start() {
   started = true;
   await useSettings.getState().load();
   openTab();
+  refreshTools();
 }
 
 /**
@@ -29,9 +40,14 @@ async function start() {
 function handleShortcut(event: KeyboardEvent) {
   if (!event.ctrlKey || event.altKey) return;
   const tabs = useTabs.getState();
+  const settings = useSettings.getState();
   const key = event.key.toLowerCase();
 
-  if (event.shiftKey && key === 't') openTab();
+  // "+" needs Shift on most layouts, so "=" (the same key) zooms in too.
+  if (key === '+' || key === '=') settings.zoomBy(1);
+  else if (key === '-' && !event.shiftKey) settings.zoomBy(-1);
+  else if (key === '0' && !event.shiftKey) settings.resetZoom();
+  else if (event.shiftKey && key === 't') openTab();
   else if (event.shiftKey && key === 'w' && tabs.activeId !== null) tabs.close(tabs.activeId);
   else if (key === 'tab') tabs.cycle(event.shiftKey ? -1 : 1);
   else return;
@@ -49,12 +65,26 @@ export function App() {
   const activeId = useTabs((state) => state.activeId);
   const activate = useTabs((state) => state.activate);
   const close = useTabs((state) => state.close);
+  const tools = useTools((state) => state.tools);
+  const toolsHidden = useTools((state) => state.hidden);
+  const hideTools = useTools((state) => state.hide);
 
   useEffect(() => {
     void start();
     window.addEventListener('keydown', handleShortcut, true);
-    return () => window.removeEventListener('keydown', handleShortcut, true);
+    // Installers take the focus (administrator prompt, setup window). When it
+    // comes back, the tool may be there.
+    window.addEventListener('focus', refreshTools);
+    return () => {
+      window.removeEventListener('keydown', handleShortcut, true);
+      window.removeEventListener('focus', refreshTools);
+    };
   }, []);
+
+  // Closing the install tab is the other moment an install has just finished.
+  useEffect(() => {
+    if (useSettings.getState().config) refreshTools();
+  }, [tabs.length]);
 
   // The window chrome follows the same theme as the terminal.
   useEffect(() => {
@@ -75,6 +105,10 @@ export function App() {
         onClose={close}
         onNew={openTab}
       />
+
+      {!toolsHidden && (
+        <ToolsBar missing={missingTools(tools)} onInstall={installTool} onHide={hideTools} />
+      )}
 
       {configError && (
         <div role="alert" className="flex items-start gap-3 bg-fg/10 px-3 py-2 text-sm select-text">

@@ -12,9 +12,13 @@ version = 1
 scrollback = 5000
 
 [font]
-# Se usa la primera fuente de la lista que esté instalada.
-family = "Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+# Se usa la primera fuente de la lista que esté disponible. JetBrains Mono
+# viene incluida en la terminal; las demás deben estar instaladas en el equipo.
+family = "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+# Tamaño base. Ctrl + y Ctrl - lo cambian mientras trabajas; Ctrl 0 vuelve a este valor.
 size = 14
+# Alto de cada línea, como múltiplo del tamaño de la fuente.
+line_height = 1.2
 
 [theme]
 # Colores en hexadecimal: #RRGGBB, o #RRGGBBAA con transparencia.

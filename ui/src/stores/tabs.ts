@@ -6,13 +6,18 @@ export interface Tab {
   id: number;
   title: string;
   shellId: string;
+  /** Typed and run in the shell as soon as it starts. */
+  initialCommand?: string;
 }
+
+/** What a new tab can override. */
+export type TabOptions = Partial<Pick<Tab, 'title' | 'initialCommand'>>;
 
 interface TabsState {
   tabs: Tab[];
   activeId: number | null;
   /** Opens a tab for `shell` and makes it the active one. */
-  open: (shell: ShellProfile) => void;
+  open: (shell: ShellProfile, options?: TabOptions) => void;
   /** Closes a tab. If it was active, the tab that takes its place becomes active. */
   close: (id: number) => void;
   activate: (id: number) => void;
@@ -27,9 +32,9 @@ export const useTabs = create<TabsState>((set) => ({
   tabs: [],
   activeId: null,
 
-  open: (shell) =>
+  open: (shell, options) =>
     set((state) => {
-      const tab: Tab = { id: nextId++, title: shell.name, shellId: shell.id };
+      const tab: Tab = { id: nextId++, title: shell.name, shellId: shell.id, ...options };
       return { tabs: [...state.tabs, tab], activeId: tab.id };
     }),
 

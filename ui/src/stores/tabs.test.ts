@@ -22,6 +22,16 @@ describe('tabs store', () => {
     expect(activeId).toBe(second);
   });
 
+  it('lets a tab carry its own title and a command to run', () => {
+    useTabs.getState().open(shell('pwsh'), { title: 'Install', initialCommand: 'winget list' });
+
+    expect(useTabs.getState().tabs[0]).toMatchObject({
+      title: 'Install',
+      shellId: 'pwsh',
+      initialCommand: 'winget list',
+    });
+  });
+
   it('keeps the active tab when another one closes', () => {
     const [first, , third] = openTabs('a', 'b', 'c');
 

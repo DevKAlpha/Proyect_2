@@ -1,0 +1,13 @@
+[package]
+name = "term-tools"
+description = "Finds the developer tools people expect in a terminal and how to install the missing ones."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+which = "8"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"

@@ -21,7 +21,7 @@ export interface Config {
   version: number;
   default_shell: string | null;
   scrollback: number;
-  font: { family: string; size: number };
+  font: { family: string; size: number; line_height: number };
   theme: {
     background: string;
     foreground: string;
@@ -31,7 +31,22 @@ export interface Config {
   };
 }
 
+/** A developer tool (Node.js, Docker) and whether this machine has it. */
+export interface ToolStatus {
+  id: string;
+  name: string;
+  /** The commands the user gains, for example "node, npm, npx". */
+  provides: string;
+  installed: boolean;
+  /** Command that installs it here, or `null` when only `website` can help. */
+  install_command: string | null;
+  website: string;
+}
+
 export const listShells = () => invoke<ShellProfile[]>('list_shells');
+
+/** Checks the machine again on every call. */
+export const listTools = () => invoke<ToolStatus[]>('list_tools');
 
 export const getConfig = () => invoke<Config>('get_config');
 

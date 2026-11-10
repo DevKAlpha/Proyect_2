@@ -3,7 +3,31 @@ import { describe, expect, it, vi } from 'vitest';
 // The store imports the Tauri bridge, which needs a real window.
 vi.mock('../ipc', () => ({}));
 
-const { pickDefaultShell } = await import('./settings');
+const { effectiveFontSize, pickDefaultShell, useSettings } = await import('./settings');
+
+describe('font zoom', () => {
+  it('adds the zoom to the configured size', () => {
+    expect(effectiveFontSize(14, 2)).toBe(16);
+    expect(effectiveFontSize(14, -3)).toBe(11);
+  });
+
+  it('keeps the size readable at both ends', () => {
+    expect(effectiveFontSize(14, -100)).toBe(6);
+    expect(effectiveFontSize(14, 100)).toBe(48);
+  });
+
+  it('does not store zoom beyond the limit, so zooming back works at once', () => {
+    useSettings.setState({ zoom: 0, config: null });
+    for (let i = 0; i < 20; i++) useSettings.getState().zoomBy(-1);
+    expect(useSettings.getState().zoom).toBe(-8);
+
+    useSettings.getState().zoomBy(1);
+    expect(useSettings.getState().zoom).toBe(-7);
+
+    useSettings.getState().resetZoom();
+    expect(useSettings.getState().zoom).toBe(0);
+  });
+});
 
 const shells = [
   { id: 'pwsh', name: 'PowerShell', program: 'pwsh.exe', args: [] },

@@ -5,6 +5,7 @@ use tauri::State;
 use term_config::Config;
 use term_pty::{PtySession, SpawnOptions};
 use term_shell::ShellProfile;
+use term_tools::ToolStatus;
 
 use crate::state::AppState;
 
@@ -12,6 +13,13 @@ use crate::state::AppState;
 #[tauri::command]
 pub fn list_shells(state: State<'_, AppState>) -> Vec<ShellProfile> {
     state.shells.clone()
+}
+
+/// Developer tools and whether each one is installed. Checked on every call,
+/// because the user may have just installed one.
+#[tauri::command]
+pub fn list_tools() -> Vec<ToolStatus> {
+    term_tools::detect()
 }
 
 #[tauri::command]
@@ -44,6 +52,11 @@ pub fn pty_spawn(
         program: shell.program.clone(),
         args: shell.args.clone(),
         cwd: dirs::home_dir(),
+        // A tool installed after the app started must work in the next tab.
+        env: term_tools::fresh_path()
+            .map(|path| ("PATH".to_owned(), path.to_string_lossy().into_owned()))
+            .into_iter()
+            .collect(),
         cols,
         rows,
     };

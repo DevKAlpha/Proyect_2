@@ -36,6 +36,8 @@ pub struct SpawnOptions {
     pub args: Vec<String>,
     /// Working directory. `None` leaves the choice to the platform.
     pub cwd: Option<PathBuf>,
+    /// Variables set on top of the environment of this process.
+    pub env: Vec<(String, String)>,
     pub cols: u16,
     pub rows: u16,
 }
@@ -73,6 +75,9 @@ impl PtySession {
         // Programs choose their colour and key handling from these.
         command.env("TERM", "xterm-256color");
         command.env("COLORTERM", "truecolor");
+        for (key, value) in &options.env {
+            command.env(key, value);
+        }
 
         let mut child = pair
             .slave

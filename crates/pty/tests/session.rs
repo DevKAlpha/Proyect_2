@@ -26,6 +26,7 @@ fn run(script: &str, marker: &str) -> (String, Option<u32>) {
         program: program.into(),
         args: vec![flag.into(), script.into()],
         cwd: None,
+        env: vec![],
         cols: 80,
         rows: 24,
     };
@@ -85,6 +86,7 @@ fn missing_program_is_an_error() {
         program: "definitely-not-a-real-shell".into(),
         args: vec![],
         cwd: None,
+        env: vec![],
         cols: 80,
         rows: 24,
     };

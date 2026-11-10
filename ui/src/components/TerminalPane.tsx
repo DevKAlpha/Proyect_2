@@ -4,14 +4,20 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type ITerminalOptions } from '@xterm/xterm';
 import { killPty, resizePty, spawnPty, writePty, type Config } from '../ipc';
-import { useSettings } from '../stores/settings';
+import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
 import { useTabs, type Tab } from '../stores/tabs';
 
 /** The part of the user's configuration that xterm.js draws. */
-function terminalOptions(config: Config): ITerminalOptions {
+function terminalOptions(config: Config, zoom: number): ITerminalOptions {
   return {
     fontFamily: config.font.family,
-    fontSize: config.font.size,
+    fontSize: effectiveFontSize(config.font.size, zoom),
+    lineHeight: config.font.line_height,
+    fontWeight: '400',
+    fontWeightBold: '700',
+    // Programs often print dim grey on dark; this lifts such text to a
+    // readable contrast (WCAG AA) without touching colours that already pass.
+    minimumContrastRatio: 4.5,
     scrollback: config.scrollback,
     theme: {
       background: config.theme.background,
@@ -68,14 +74,18 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const config = useSettings((state) => state.config);
+  const zoom = useSettings((state) => state.zoom);
 
   // Create the screen and its shell once per tab.
   useEffect(() => {
     const host = hostRef.current;
-    const initialConfig = useSettings.getState().config;
-    if (!host || !initialConfig) return;
+    const initial = useSettings.getState();
+    if (!host || !initial.config) return;
 
-    const term = new Terminal({ ...terminalOptions(initialConfig), cursorBlink: true });
+    const term = new Terminal({
+      ...terminalOptions(initial.config, initial.zoom),
+      cursorBlink: true,
+    });
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(host);
@@ -115,7 +125,10 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
         // The tab was closed while the shell was starting.
         if (disposed) return void killPty(id);
         sessionId = id;
-        if (earlyInput) void writePty(id, earlyInput);
+        // The answer to the shell's start-up question goes first, then the
+        // command. The shell reads the command when it is ready for input.
+        const command = tab.initialCommand ? `${tab.initialCommand}\r` : '';
+        if (earlyInput || command) void writePty(id, earlyInput + command);
         earlyInput = '';
         // The window may have been resized in the meantime.
         void resizePty(id, term.cols, term.rows);
@@ -147,15 +160,22 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       termRef.current = null;
       fitRef.current = null;
     };
-  }, [tab.id, tab.shellId]);
+  }, [tab.id, tab.shellId, tab.initialCommand]);
 
-  // Apply configuration edits to the open screen.
+  // Apply configuration edits and zoom to the open screen.
   useEffect(() => {
     const term = termRef.current;
     if (!term || !config) return;
-    Object.assign(term.options, terminalOptions(config));
+    Object.assign(term.options, terminalOptions(config, zoom));
     fitRef.current?.fit();
-  }, [config]);
+    // A newly chosen font may still be loading: glyphs drawn before it
+    // arrived are cached with the fallback font and must be drawn again.
+    void loadFonts(config.font.family).then(() => {
+      if (termRef.current !== term) return;
+      term.clearTextureAtlas();
+      fitRef.current?.fit();
+    });
+  }, [config, zoom]);
 
   useEffect(() => {
     if (active) termRef.current?.focus();
