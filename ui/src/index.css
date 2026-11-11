@@ -52,3 +52,22 @@ body {
 .xterm .xterm-viewport {
   background-color: transparent;
 }
+
+/*
+ * The suggested rest of a command, drawn over the terminal after the cursor.
+ * One box per character, each as wide as a terminal cell, so the text lines
+ * up with what the shell will echo when the suggestion is accepted.
+ */
+.term-ghost {
+  overflow: hidden;
+  color: var(--term-fg);
+  opacity: 0.45;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.term-ghost > span {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+}

@@ -8,6 +8,10 @@ use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 
+mod integration;
+
+pub use integration::{prompt_marks, Integration};
+
 /// A shell the terminal can open in a tab.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ShellProfile {

@@ -4207,10 +4207,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "term-history"
+version = "0.1.0"
+dependencies = [
+ "dirs 6.0.0",
+ "tempfile",
+]
+
+[[package]]
 name = "term-pty"
 version = "0.1.0"
 dependencies = [
  "portable-pty",
+ "term-shell",
  "thiserror 2.0.21",
 ]
 
@@ -4244,6 +4253,7 @@ dependencies = [
  "tauri-plugin-opener",
  "term-browser",
  "term-config",
+ "term-history",
  "term-pty",
  "term-shell",
  "term-tools",

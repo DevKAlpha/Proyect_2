@@ -8,3 +8,6 @@ publish.workspace = true
 [dependencies]
 portable-pty = "0.9"
 thiserror.workspace = true
+
+[dev-dependencies]
+term-shell = { path = "../shell" }

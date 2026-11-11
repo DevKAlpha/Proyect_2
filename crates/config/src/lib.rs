@@ -56,9 +56,29 @@ pub struct Config {
     pub theme: Theme,
     pub background: Background,
     pub browser: Browser,
+    pub input: Input,
     /// Extra entries for the new-tab menu: any agent or tool that starts
     /// with a command.
     pub agents: Vec<CustomAgent>,
+}
+
+/// Help while typing a command.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Input {
+    /// Suggest an earlier command that starts like the one being typed.
+    pub suggestions: bool,
+    /// How many commands are remembered. Zero remembers none.
+    pub history_size: u32,
+    /// Key that, held down, selects text of the command with the arrows.
+    pub select_with: SelectWith,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SelectWith {
+    Ctrl,
+    Shift,
 }
 
 /// A command the user wants one click away, for example an AI agent that
@@ -129,6 +149,7 @@ impl Default for Config {
             theme: Theme::default(),
             background: Background::default(),
             browser: Browser::default(),
+            input: Input::default(),
             agents: Vec::new(),
         }
     }
@@ -159,6 +180,16 @@ impl Default for Background {
         Self {
             image: String::new(),
             dim: 0.75,
+        }
+    }
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            suggestions: true,
+            history_size: 1000,
+            select_with: SelectWith::Ctrl,
         }
     }
 }
@@ -287,6 +318,22 @@ port = 9400
         assert_eq!(config.background.image, "C:/fondos/noche.png");
         assert_eq!(config.background.dim, 0.5);
         assert_eq!(config.browser.port, 9400);
+    }
+
+    #[test]
+    fn reads_input_settings() {
+        let config = Config::parse(
+            "[input]
+suggestions = false
+history_size = 0
+select_with = 'shift'
+",
+        )
+        .unwrap();
+
+        assert!(!config.input.suggestions);
+        assert_eq!(config.input.history_size, 0);
+        assert_eq!(config.input.select_with, SelectWith::Shift);
     }
 
     #[test]

@@ -11,6 +11,8 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 - Proyectos: carpetas con sus terminales, ordenadas en una barra lateral. Se guardan entre sesiones.
 - Agentes de IA: detecta Claude Code, Codex, Gemini CLI, OpenCode y GitHub Copilot CLI. Los instalados se abren desde el menú de pestaña nueva; los que faltan se instalan desde ahí. Puedes añadir cualquier otro en la configuración.
 - Navegador de pruebas: un navegador aislado que los agentes controlan para probar aplicaciones web.
+- Recuerda tus comandos y los sugiere mientras escribes.
+- Borra parte de un comando seleccionándola con el ratón o con el teclado.
 - Personalizable: temas, colores, fuente, cursor e imagen de fondo.
 - Fuente JetBrains Mono incluida, texto nítido en pantallas de alta densidad y zoom con el teclado.
 - Avisa si faltan Node.js o Docker y los instala con un clic, en una pestaña donde ves el comando.
@@ -28,6 +30,11 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 | `Ctrl+Shift+C`                 | Copiar                                                           |
 | `Ctrl+C`                       | Copiar si hay texto seleccionado; si no, interrumpir el programa |
 | `Ctrl+V` / `Ctrl+Shift+V`      | Pegar                                                            |
+| `→`                            | Aceptar el comando sugerido en gris                              |
+| `Ctrl+←` / `Ctrl+→`            | Seleccionar el comando carácter a carácter                       |
+| `Ctrl+↑` / `Ctrl+↓`            | Seleccionar por filas, si el comando ocupa varias                |
+| `Ctrl+Inicio` / `Ctrl+Fin`     | Seleccionar hasta el principio / el final del comando            |
+| `Supr` o `Retroceso`           | Borrar lo seleccionado del comando                               |
 | `Shift+Enter`                  | Línea nueva sin enviar, en agentes de IA                         |
 | `Ctrl+clic` en un enlace       | Abrir el enlace en el navegador                                  |
 | `F2` o doble clic en un nombre | Cambiar el nombre de un proyecto o de una terminal               |
@@ -44,6 +51,40 @@ Un proyecto es una carpeta con sus terminales, como una carpeta de conversacione
 - Quitar un proyecto cierra sus terminales. La carpeta no se toca.
 
 Se guarda la lista (nombres, carpetas, qué ejecuta cada terminal). El texto y el historial de las terminales no se guardan.
+
+## Mientras escribes un comando
+
+**Sugerencias.** La terminal recuerda los comandos que ejecutas. Al escribir, muestra en gris el más reciente que empieza igual; la flecha derecha lo completa.
+
+**Borrar seleccionando.** Selecciona parte del comando y pulsa `Supr` o `Retroceso` para borrarla:
+
+- Con el ratón: arrastra sobre el texto del comando.
+- Con el teclado: mantén `Ctrl` y mueve con las flechas. Funciona también en comandos largos que ocupan varias filas.
+
+Las dos cosas funcionan en PowerShell, Git Bash, bash y cmd. En WSL, zsh y fish todavía no. Solo actúan mientras escribes un comando: dentro de un programa (un editor, un agente de IA) todas las teclas van al programa sin cambios.
+
+Con `Ctrl` como tecla de selección, `Ctrl+←` y `Ctrl+→` dejan de saltar por palabras mientras escribes un comando. Si prefieres conservar ese salto, selecciona con `Shift`:
+
+```toml
+[input]
+select_with = "shift"
+```
+
+**Qué se guarda.** Los comandos se guardan en un archivo de texto que puedes leer, editar o borrar:
+
+| Sistema | Ruta                                                 |
+| ------- | ---------------------------------------------------- |
+| Windows | `%LOCALAPPDATA%\terminal\history.txt`                |
+| Linux   | `~/.local/share/terminal/history.txt`                |
+| macOS   | `~/Library/Application Support/terminal/history.txt` |
+
+- No se guardan los comandos que parecen llevar una credencial (contienen `password`, `token`, `secret`, `apikey` y similares).
+- No se guarda un comando que empieza por un espacio. Úsalo cuando no quieras dejar rastro.
+- No se guarda lo que escribes dentro de un programa, ni las contraseñas que un programa te pide: la terminal lee el comando de la pantalla, y una contraseña no se muestra.
+- «Olvidar comandos recordados», en la barra lateral, los borra todos.
+- `history_size = 0` en `[input]` desactiva el recuerdo; `suggestions = false` oculta las sugerencias.
+
+El filtro de credenciales reduce el riesgo, no lo elimina: un secreto escrito de otra forma sí se guardaría.
 
 ## Agentes de IA
 
@@ -145,6 +186,7 @@ cargo test --workspace
 crates/pty      Sesiones de pseudo-terminal (ConPTY en Windows, forkpty en Unix)
 crates/shell    Detección de los shells instalados
 crates/config   Configuración, temas y proyectos guardados
+crates/history  Comandos recordados, con filtro de credenciales
 crates/tools    Herramientas y agentes de IA: cuáles faltan y cómo instalarlos
 crates/browser  Navegador de pruebas aislado para los agentes
 src-tauri/      App de escritorio: ventana, comandos IPC y eventos

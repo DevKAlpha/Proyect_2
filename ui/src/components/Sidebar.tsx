@@ -20,6 +20,10 @@ interface SidebarProps {
   onActivateTab: (id: number) => void;
   onRenameTab: (id: number, title: string) => void;
   onCloseTab: (id: number) => void;
+  /** How many commands are remembered for suggestions. */
+  rememberedCommands: number;
+  /** Forgets every remembered command. */
+  onClearHistory: () => void;
   onToggleBrowser: () => void;
   onOpenConfig: () => void;
 }
@@ -74,6 +78,8 @@ export function Sidebar(props: SidebarProps) {
   const { projects, tabs, activeProjectId, activeId, browser, browserError } = props;
   const [editing, setEditing] = useState<Editing>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  // Forgetting cannot be undone, so it takes a second click.
+  const [confirmingForget, setConfirmingForget] = useState(false);
 
   /** The terminals of one group, as a list under its heading. */
   const terminals = (projectId: string | null) => (
@@ -271,6 +277,22 @@ export function Sidebar(props: SidebarProps) {
           <p role="alert" className="px-2 select-text">
             {browserError}
           </p>
+        )}
+        {props.rememberedCommands > 0 && (
+          <button
+            type="button"
+            title="Los comandos que ejecutas se recuerdan para sugerirlos mientras escribes. Esto los borra todos."
+            onClick={() => {
+              if (confirmingForget) props.onClearHistory();
+              setConfirmingForget(!confirmingForget);
+            }}
+            onBlur={() => setConfirmingForget(false)}
+            className={footerButton}
+          >
+            {confirmingForget
+              ? 'Pulsa otra vez para olvidarlos'
+              : `Olvidar ${props.rememberedCommands} comandos recordados`}
+          </button>
         )}
         <button
           type="button"

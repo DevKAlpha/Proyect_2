@@ -60,6 +60,19 @@ dim = 0.75
 # Puerto local del navegador de pruebas que controlan los agentes de IA.
 port = 9333
 
+[input]
+# Mientras escribes un comando, sugiere en gris uno anterior que empiece igual.
+# La flecha derecha lo acepta.
+suggestions = true
+# Cuántos comandos se recuerdan. 0 = no recordar ninguno.
+# No se recuerdan los que parecen llevar una contraseña o un token, ni los
+# que empiezan por un espacio.
+history_size = 1000
+# Tecla que, mantenida, selecciona texto del comando con las flechas:
+# "ctrl" o "shift". Supr o Retroceso borran lo seleccionado.
+# Con "ctrl", Ctrl + flecha deja de saltar por palabras mientras escribes.
+select_with = "ctrl"
+
 # Agentes de IA y herramientas propias. Aparecen en el menú de pestaña nueva
 # (la flecha junto al +). Los agentes conocidos (Claude Code, Codex, Gemini CLI,
 # OpenCode, GitHub Copilot CLI) se detectan solos; aquí van los demás.

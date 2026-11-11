@@ -108,6 +108,24 @@ pub async fn pick_folder(app: AppHandle) -> Option<String> {
     Some(path.to_string_lossy().into_owned())
 }
 
+/// The commands the user ran before, oldest first.
+#[tauri::command]
+pub fn history_list(state: State<'_, AppState>) -> Vec<String> {
+    state.history()
+}
+
+/// Remembers a command the user just ran and returns the list as it is now.
+/// What is worth remembering is decided by `term-history`, not by the UI.
+#[tauri::command]
+pub fn history_add(state: State<'_, AppState>, command: String) -> Vec<String> {
+    state.record_command(&command)
+}
+
+#[tauri::command]
+pub fn history_clear(state: State<'_, AppState>) {
+    state.clear_history();
+}
+
 /// What the UI needs to know about the test browser.
 #[derive(Serialize)]
 pub struct BrowserStatus {
@@ -170,15 +188,22 @@ pub fn pty_spawn(
         .and_then(|project| state.project_dir(&project))
         .or_else(dirs::home_dir);
 
+    // The shell marks its prompt, so the terminal knows which text is the
+    // command being typed. Suggestions and editing by selection rest on it.
+    let marks = term_shell::prompt_marks(&shell.id, &|key| std::env::var(key).ok());
+    let mut args = shell.args.clone();
+    args.extend(marks.args);
+    let mut env = marks.env;
+    // A tool installed after the app started must work in the next tab.
+    if let Some(path) = term_tools::fresh_path() {
+        env.push(("PATH".to_owned(), path.to_string_lossy().into_owned()));
+    }
+
     let options = SpawnOptions {
         program: shell.program.clone(),
-        args: shell.args.clone(),
+        args,
         cwd,
-        // A tool installed after the app started must work in the next tab.
-        env: term_tools::fresh_path()
-            .map(|path| ("PATH".to_owned(), path.to_string_lossy().into_owned()))
-            .into_iter()
-            .collect(),
+        env,
         cols,
         rows,
     };

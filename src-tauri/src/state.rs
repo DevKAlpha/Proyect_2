@@ -9,6 +9,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use tauri::{AppHandle, Emitter, Manager};
 use term_browser::Browser;
 use term_config::{Config, ConfigWatcher, Workspace};
+use term_history::History;
 use term_pty::PtySession;
 use term_shell::ShellProfile;
 
@@ -28,6 +29,8 @@ pub struct AppState {
     workspace_path: Option<PathBuf>,
     /// The test browser, while this app has one running.
     browser: Mutex<Option<Child>>,
+    history: Mutex<History>,
+    history_path: Option<PathBuf>,
     /// Detected once at start: installing a shell needs a restart to show up.
     pub shells: Vec<ShellProfile>,
     /// Detected once at start, like the shells.
@@ -63,6 +66,18 @@ impl AppState {
             })
             .unwrap_or_default();
 
+        let history_path = term_history::history_path();
+        let history = history_path
+            .as_deref()
+            .and_then(|path| match History::load(path) {
+                Ok(history) => Some(history),
+                Err(error) => {
+                    eprintln!("starting without command history: {error}");
+                    None
+                }
+            })
+            .unwrap_or_default();
+
         Self {
             sessions: Mutex::default(),
             next_session_id: AtomicU32::new(1),
@@ -72,6 +87,8 @@ impl AppState {
             workspace: Mutex::new(workspace),
             workspace_path,
             browser: Mutex::default(),
+            history: Mutex::new(history),
+            history_path,
             shells: term_shell::detect_shells(),
             test_browser: term_browser::find_browser(),
         }
@@ -109,6 +126,39 @@ impl AppState {
     /// Folder a new terminal of `project` starts in, when it still exists.
     pub fn project_dir(&self, project: &str) -> Option<PathBuf> {
         lock(&self.workspace).project_dir(project)
+    }
+
+    /// The remembered commands, oldest first.
+    pub fn history(&self) -> Vec<String> {
+        lock(&self.history).entries().to_vec()
+    }
+
+    /// Remembers a command the user ran, within the configured limit, and
+    /// returns the list as it is now.
+    pub fn record_command(&self, command: &str) -> Vec<String> {
+        let limit = lock(&self.config).input.history_size as usize;
+        let mut history = lock(&self.history);
+        if history.record(command, limit) {
+            self.save_history(&history);
+        }
+        history.entries().to_vec()
+    }
+
+    /// Forgets every remembered command, in memory and on disk.
+    pub fn clear_history(&self) {
+        let mut history = lock(&self.history);
+        history.clear();
+        self.save_history(&history);
+    }
+
+    /// Suggestions are a convenience: a history that cannot be written must
+    /// not get in the way of running a command.
+    fn save_history(&self, history: &History) {
+        if let Some(path) = &self.history_path {
+            if let Err(error) = history.save(path) {
+                eprintln!("command history was not saved: {error}");
+            }
+        }
     }
 
     /// Whether the test browser started by this app is still open. The user

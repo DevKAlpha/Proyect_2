@@ -11,6 +11,7 @@ import {
   type ShellProfile,
   type ToolStatus,
 } from './ipc';
+import { useHistory } from './stores/history';
 import { buildNewTabMenu, type MenuItem } from './stores/menu';
 import { pickDefaultShell, useSettings } from './stores/settings';
 import { persistWorkspace, tabsOf, useTabs, type TabOptions } from './stores/tabs';
@@ -70,6 +71,7 @@ async function start() {
   }
   // From here on, every change of projects or their terminals is saved.
   persistWorkspace((workspace) => void saveWorkspace(workspace));
+  void useHistory.getState().load();
   openTab();
   refreshTools();
 }
@@ -118,6 +120,8 @@ export function App() {
   const toggleBrowser = useTools((state) => state.toggleBrowser);
   const toolsHidden = useTools((state) => state.hidden);
   const hideTools = useTools((state) => state.hide);
+  const rememberedCommands = useHistory((state) => state.entries.length);
+  const clearHistory = useHistory((state) => state.clear);
 
   const menu = useMemo(
     () => buildNewTabMenu(shells, agents, config?.agents ?? [], browser?.connectors),
@@ -172,6 +176,8 @@ export function App() {
           onActivateTab={store.activate}
           onRenameTab={store.rename}
           onCloseTab={store.close}
+          rememberedCommands={rememberedCommands}
+          onClearHistory={() => void clearHistory()}
           onToggleBrowser={() => void toggleBrowser()}
           onOpenConfig={() => void openConfigFile()}
         />

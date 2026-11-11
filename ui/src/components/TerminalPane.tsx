@@ -6,9 +6,11 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type ITerminalOptions } from '@xterm/xterm';
 import { killPty, openExternal, resizePty, spawnPty, writePty, type Config } from '../ipc';
+import { useHistory } from '../stores/history';
 import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
 import { useTabs, type Tab } from '../stores/tabs';
 import { terminalTheme } from '../stores/theme';
+import { attachPromptAssist, type PromptAssist } from './promptAssist';
 
 /**
  * Opens a link from the terminal. Ctrl (or Cmd) must be held, as in other
@@ -50,8 +52,14 @@ function terminalOptions(config: Config, zoom: number, seeThrough: boolean): ITe
  * Ctrl+C copies only when text is selected; otherwise it stays the interrupt
  * key. Ctrl+Shift+C and Ctrl+Shift+V always mean copy and paste.
  */
-function terminalKeys(term: Terminal) {
+function terminalKeys(term: Terminal, assist: PromptAssist) {
   return (event: KeyboardEvent): boolean => {
+    // Suggestions and editing by selection come first: they only take a key
+    // while the user is typing a command at a prompt.
+    if (event.type === 'keydown' && assist.handleKey(event)) {
+      event.preventDefault();
+      return false;
+    }
     if (event.key === 'Enter' && event.shiftKey && !event.ctrlKey && !event.altKey) {
       // Also swallow the key press and key up, or Enter would follow.
       if (event.type === 'keydown') term.input('\x1b\r', true);
@@ -136,7 +144,6 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       // No WebGL2 on this machine: the DOM renderer is already active.
     }
     fit.fit();
-    term.attachCustomKeyEventHandler(terminalKeys(term));
     termRef.current = term;
     fitRef.current = fit;
 
@@ -146,6 +153,18 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
     // on Windows the shell asks for the cursor position at start and waits
     // for the answer xterm.js sends back.
     let earlyInput = '';
+    const send = (data: string) => {
+      if (sessionId === null) earlyInput += data;
+      else void writePty(sessionId, data);
+    };
+
+    const assist = attachPromptAssist(term, {
+      send,
+      settings: () => useSettings.getState().config?.input ?? null,
+      history: () => useHistory.getState().entries,
+      record: (command) => void useHistory.getState().record(command),
+    });
+    term.attachCustomKeyEventHandler(terminalKeys(term, assist));
 
     spawnPty({
       shellId: tab.shellId,
@@ -176,8 +195,9 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       });
 
     const input = term.onData((data) => {
-      if (sessionId === null) earlyInput += data;
-      else void writePty(sessionId, data);
+      // The line is read from the screen before Enter makes the shell move on.
+      assist.beforeInput(data);
+      send(data);
     });
     const resize = term.onResize(({ cols, rows }) => {
       if (sessionId !== null) void resizePty(sessionId, cols, rows);
@@ -191,6 +211,7 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
     return () => {
       disposed = true;
       observer.disconnect();
+      assist.dispose();
       input.dispose();
       resize.dispose();
       if (sessionId !== null) void killPty(sessionId);

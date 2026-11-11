@@ -39,6 +39,14 @@ export interface Config {
   /** `image` is a path, empty for none. `dim` goes from 0 (image) to 1 (colour). */
   background: { image: string; dim: number };
   browser: { port: number };
+  /** Help while typing a command. */
+  input: {
+    /** Suggest an earlier command that starts like the one being typed. */
+    suggestions: boolean;
+    history_size: number;
+    /** Key that, held down, selects text of the command with the arrows. */
+    select_with: 'ctrl' | 'shift';
+  };
   /** Agents or tools the user added to the new-tab menu. */
   agents: { name: string; command: string }[];
 }
@@ -111,6 +119,14 @@ export const saveWorkspace = (workspace: Workspace) =>
 
 /** Asks the user for a folder. Resolves with `null` when they cancel. */
 export const pickFolder = () => invoke<string | null>('pick_folder');
+
+/** The commands the user ran before, oldest first. */
+export const historyList = () => invoke<string[]>('history_list');
+
+/** Remembers a command and resolves with the list as it is now. */
+export const historyAdd = (command: string) => invoke<string[]>('history_add', { command });
+
+export const historyClear = () => invoke<void>('history_clear');
 
 export const browserStatus = () => invoke<BrowserStatus>('browser_status');
 
