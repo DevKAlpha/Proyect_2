@@ -51,6 +51,9 @@ pub struct Config {
     pub scrollback: u32,
     /// Space between the text and the edge of the window, in pixels.
     pub padding: u16,
+    /// On Windows, lets PowerShell and cmd find the Unix tools that come
+    /// with Git for Windows (`grep`, `ls`, `cat`...).
+    pub linux_commands: bool,
     pub font: Font,
     pub cursor: Cursor,
     pub theme: Theme,
@@ -66,8 +69,12 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Input {
-    /// Suggest an earlier command that starts like the one being typed.
+    /// Suggest an earlier command that starts like the one being typed, or
+    /// a common command when nothing remembered fits.
     pub suggestions: bool,
+    /// Explain the command being typed and warn about likely mistakes, in a
+    /// line under the terminal.
+    pub hints: bool,
     /// How many commands are remembered. Zero remembers none.
     pub history_size: u32,
     /// Key that, held down, selects text of the command with the arrows.
@@ -144,6 +151,7 @@ impl Default for Config {
             default_shell: None,
             scrollback: 5000,
             padding: 8,
+            linux_commands: true,
             font: Font::default(),
             cursor: Cursor::default(),
             theme: Theme::default(),
@@ -188,6 +196,7 @@ impl Default for Input {
     fn default() -> Self {
         Self {
             suggestions: true,
+            hints: true,
             history_size: 1000,
             select_with: SelectWith::Ctrl,
         }
@@ -325,6 +334,7 @@ port = 9400
         let config = Config::parse(
             "[input]
 suggestions = false
+hints = false
 history_size = 0
 select_with = 'shift'
 ",
@@ -332,8 +342,17 @@ select_with = 'shift'
         .unwrap();
 
         assert!(!config.input.suggestions);
+        assert!(!config.input.hints);
         assert_eq!(config.input.history_size, 0);
         assert_eq!(config.input.select_with, SelectWith::Shift);
+    }
+
+    #[test]
+    fn linux_commands_can_be_turned_off() {
+        let config = Config::parse("linux_commands = false\n").unwrap();
+
+        assert!(Config::default().linux_commands);
+        assert!(!config.linux_commands);
     }
 
     #[test]

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { readText, writeText } from '@tauri-apps/plugin-clipboard-manager';
 import { FitAddon } from '@xterm/addon-fit';
 import { Unicode11Addon } from '@xterm/addon-unicode11';
@@ -6,10 +6,13 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type ITerminalOptions } from '@xterm/xterm';
 import { killPty, openExternal, resizePty, spawnPty, writePty, type Config } from '../ipc';
+import type { Hint } from '../stores/guide';
 import { useHistory } from '../stores/history';
+import { usePrograms } from '../stores/programs';
 import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
 import { useTabs, type Tab } from '../stores/tabs';
 import { terminalTheme } from '../stores/theme';
+import { HintBar } from './HintBar';
 import { attachPromptAssist, type PromptAssist } from './promptAssist';
 
 /**
@@ -101,6 +104,9 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  const assistRef = useRef<PromptAssist | null>(null);
+  // What the line under the terminal says about the command being typed.
+  const [hint, setHint] = useState<Hint | null>(null);
   // Whether this screen can show a picture behind it. xterm.js fixes that
   // when a screen opens, so it is remembered for later theme changes.
   const seeThroughRef = useRef(false);
@@ -163,8 +169,17 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       settings: () => useSettings.getState().config?.input ?? null,
       history: () => useHistory.getState().entries,
       record: (command) => void useHistory.getState().record(command),
+      guide: () => ({
+        shell: tab.shellId,
+        programs: usePrograms.getState().byShell[tab.shellId] ?? null,
+      }),
+      onHint: setHint,
     });
+    assistRef.current = assist;
     term.attachCustomKeyEventHandler(terminalKeys(term, assist));
+    // A program installed a moment ago starts to work in this new terminal,
+    // so this is when the list of programs is read again.
+    void usePrograms.getState().refresh(tab.shellId);
 
     spawnPty({
       shellId: tab.shellId,
@@ -212,6 +227,7 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       disposed = true;
       observer.disconnect();
       assist.dispose();
+      assistRef.current = null;
       input.dispose();
       resize.dispose();
       if (sessionId !== null) void killPty(sessionId);
@@ -245,10 +261,18 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       role="tabpanel"
       id={`panel-${tab.id}`}
       aria-labelledby={`tab-${tab.id}`}
-      className={active ? 'absolute inset-0' : 'hidden'}
+      className={active ? 'absolute inset-0 flex flex-col' : 'hidden'}
       style={{ padding: config?.padding ?? 8 }}
     >
-      <div ref={hostRef} className="h-full w-full" />
+      <div ref={hostRef} className="min-h-0 w-full flex-1" />
+      {config?.input.hints && (
+        <HintBar
+          hint={hint}
+          // The fourth numbered colour is yellow.
+          warningColor={config.theme.ansi[3] ?? config.theme.foreground}
+          onFix={() => assistRef.current?.applyFix()}
+        />
+      )}
     </div>
   );
 }

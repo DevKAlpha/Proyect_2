@@ -4,6 +4,7 @@ import {
   moveFocus,
   rangeOfSelection,
   readInputLine,
+  replaceKeys,
   spanOf,
   suggest,
   type BufferLike,
@@ -15,9 +16,12 @@ const COLS = 10;
 /**
  * A fake screen. Each row is a string padded to the width; a row starting
  * with `~` is a continuation of the row above (the text wrapped onto it).
- * Characters listed in `dim` are drawn dim.
+ * Characters listed in `dim` are drawn dim; those in `grey`, in the grey
+ * numbered 8.
  */
-function screen(rows: string[], dim: Cell[] = []): BufferLike {
+function screen(rows: string[], dim: Cell[] = [], grey: Cell[] = []): BufferLike {
+  const among = (cells: Cell[], x: number, y: number) =>
+    cells.some((cell) => cell.x === x && cell.y === y);
   return {
     getLine(y) {
       const raw = rows[y];
@@ -31,7 +35,9 @@ function screen(rows: string[], dim: Cell[] = []): BufferLike {
             ? {
                 getChars: () => (chars[x] === ' ' ? '' : chars[x]!),
                 getWidth: () => 1,
-                isDim: () => (dim.some((cell) => cell.x === x && cell.y === y) ? 1 : 0),
+                isDim: () => (among(dim, x, y) ? 1 : 0),
+                isFgPalette: () => among(grey, x, y),
+                getFgColor: () => (among(grey, x, y) ? 8 : 0),
               }
             : undefined,
       };
@@ -92,6 +98,23 @@ describe('readInputLine', () => {
     expect(line.text).toBe('gitlog');
     expect(hinted.text).toBe('git');
     expect(hinted.cursor).toBe(3);
+    expect(hinted.shellHint).toBe(true);
+    expect(line.shellHint).toBe(false);
+  });
+
+  it('leaves out a grey hint the shell draws after the cursor', () => {
+    // zsh with its suggestions plugin draws them in grey, not dim.
+    const grey = [at(5, 0), at(6, 0), at(7, 0)];
+    const hinted = readInputLine(screen(['$ gitlog', ''], [], grey), at(2, 0), at(5, 0), COLS)!;
+
+    expect(hinted.text).toBe('git');
+  });
+
+  it('keeps grey text the user typed before the cursor', () => {
+    const grey = [at(2, 0), at(3, 0), at(4, 0)];
+    const line = readInputLine(screen(['$ # ok', ''], [], grey), at(2, 0), at(6, 0), COLS)!;
+
+    expect(line.text).toBe('# ok');
   });
 
   it('cannot be trusted when the cursor is on a row that is not part of it', () => {
@@ -199,6 +222,37 @@ describe('deleteKeys', () => {
 
   it('uses the other form of the arrows when the terminal is in that mode', () => {
     expect(deleteKeys(4, { from: 2, to: 5 }, true)).toBe('\x1bOC' + backspace.repeat(3));
+  });
+});
+
+describe('replaceKeys', () => {
+  const right = '\x1b[C';
+  const left = '\x1b[D';
+  const backspace = '\x7f';
+
+  it('takes a cursor that was after the range back to the same character', () => {
+    // `gti --version` with the cursor at the end: fix the first word, return to the end.
+    expect(replaceKeys(13, { from: 0, to: 3 }, 'git', false)).toBe(
+      left.repeat(10) + backspace.repeat(3) + 'git' + right.repeat(10),
+    );
+  });
+
+  it('counts the change of length when it goes back', () => {
+    expect(replaceKeys(6, { from: 0, to: 2 }, 'dir', false)).toBe(
+      left.repeat(4) + backspace.repeat(2) + 'dir' + right.repeat(4),
+    );
+  });
+
+  it('stays after the new text when the range ended at the cursor', () => {
+    expect(replaceKeys(6, { from: 0, to: 6 }, 'ls -Force', false)).toBe(
+      backspace.repeat(6) + 'ls -Force',
+    );
+  });
+
+  it('returns to a cursor that was before the range', () => {
+    expect(replaceKeys(0, { from: 2, to: 4 }, 'abc', false)).toBe(
+      right.repeat(4) + backspace.repeat(2) + 'abc' + left.repeat(5),
+    );
   });
 });
 

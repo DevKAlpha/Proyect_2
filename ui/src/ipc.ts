@@ -24,6 +24,8 @@ export interface Config {
   scrollback: number;
   /** Space between the text and the edge of the window, in pixels. */
   padding: number;
+  /** On Windows, Linux commands also in PowerShell and cmd. */
+  linux_commands: boolean;
   font: { family: string; size: number; line_height: number };
   cursor: { style: 'block' | 'bar' | 'underline'; blink: boolean };
   theme: {
@@ -43,6 +45,8 @@ export interface Config {
   input: {
     /** Suggest an earlier command that starts like the one being typed. */
     suggestions: boolean;
+    /** Explain the command being typed in a line under the terminal. */
+    hints: boolean;
     history_size: number;
     /** Key that, held down, selects text of the command with the arrows. */
     select_with: 'ctrl' | 'shift';
@@ -103,6 +107,14 @@ export const listTools = () => invoke<ToolStatus[]>('list_tools');
 
 /** Checks the machine again on every call. */
 export const listAgents = () => invoke<AgentStatus[]>('list_agents');
+
+/**
+ * The programs a tab of the shell `shellId` can run, as the user types them.
+ * Resolves with `null` when they cannot be known from here (WSL keeps its
+ * programs inside Linux). Checks the machine again on every call.
+ */
+export const listPrograms = (shellId: string) =>
+  invoke<string[] | null>('list_programs', { shellId });
 
 export const getConfig = () => invoke<Config>('get_config');
 

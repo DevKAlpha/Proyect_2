@@ -26,6 +26,7 @@ fn main() {
             commands::list_shells,
             commands::list_tools,
             commands::list_agents,
+            commands::list_programs,
             commands::get_config,
             commands::open_config_file,
             commands::read_background,

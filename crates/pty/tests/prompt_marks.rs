@@ -7,7 +7,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use term_pty::{PtySession, SpawnOptions};
-use term_shell::{detect_shells, prompt_marks};
+use term_shell::{detect_shells, install_support, prompt_marks};
 
 /// The mark that ends a prompt, without its terminator (shells differ on it).
 const PROMPT_END: &str = "\x1b]133;B";
@@ -19,7 +19,14 @@ const CURSOR_ANSWER: &[u8] = b"\x1b[1;1R";
 /// until its first prompt was complete. `None` when this machine lacks it.
 fn first_prompt(id: &str) -> Option<String> {
     let shell = detect_shells().into_iter().find(|shell| shell.id == id)?;
-    let marks = prompt_marks(&shell.id, &|key| std::env::var(key).ok());
+    // The start-up files some shells need, as the app writes them at start.
+    let support = tempfile::tempdir().expect("a temporary folder");
+    install_support(support.path()).expect("support files are written");
+    let marks = prompt_marks(
+        &shell.id,
+        &|key| std::env::var(key).ok(),
+        Some(support.path()),
+    );
     let mut args = shell.args;
     args.extend(marks.args);
 
@@ -59,7 +66,9 @@ fn first_prompt(id: &str) -> Option<String> {
 }
 
 /// The mark must come right after the prompt text: it is where the user's
-/// command starts on screen.
+/// command starts on screen. Only the shells of Windows have a prompt whose
+/// last character is known beforehand.
+#[cfg(windows)]
 fn assert_mark_follows(output: &str, prompt_tail: &str) {
     let mark = output.find(PROMPT_END).expect("mark is present");
     assert!(
@@ -90,5 +99,15 @@ fn bash_marks_the_end_of_its_prompt_when_installed() {
     let id = if cfg!(windows) { "git-bash" } else { "bash" };
     if let Some(output) = first_prompt(id) {
         assert!(output.contains(PROMPT_END));
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn zsh_and_fish_mark_the_end_of_their_prompt_when_installed() {
+    for id in ["zsh", "fish"] {
+        if let Some(output) = first_prompt(id) {
+            assert!(output.contains(PROMPT_END), "{id}");
+        }
     }
 }

@@ -35,6 +35,12 @@ pub struct AppState {
     pub shells: Vec<ShellProfile>,
     /// Detected once at start, like the shells.
     pub test_browser: Option<Browser>,
+    /// The Unix tools of Git for Windows, when this machine has them.
+    pub unix_tools: Option<PathBuf>,
+    /// Folder with the start-up files some shells need to mark their
+    /// prompt. `None` when it could not be written: those shells then start
+    /// as plain terminals.
+    pub shell_support: Option<PathBuf>,
 }
 
 impl AppState {
@@ -78,6 +84,17 @@ impl AppState {
             })
             .unwrap_or_default();
 
+        let shells = term_shell::detect_shells();
+        let shell_support = dirs::data_local_dir()
+            .map(|folder| folder.join("terminal").join("shell"))
+            .filter(|folder| match term_shell::install_support(folder) {
+                Ok(()) => true,
+                Err(error) => {
+                    eprintln!("some shells will start without prompt marks: {error}");
+                    false
+                }
+            });
+
         Self {
             sessions: Mutex::default(),
             next_session_id: AtomicU32::new(1),
@@ -89,8 +106,10 @@ impl AppState {
             browser: Mutex::default(),
             history: Mutex::new(history),
             history_path,
-            shells: term_shell::detect_shells(),
+            unix_tools: term_shell::unix_tools_dir(&shells),
+            shells,
             test_browser: term_browser::find_browser(),
+            shell_support,
         }
     }
 

@@ -14,6 +14,12 @@ scrollback = 5000
 # Margen entre el texto y el borde de la ventana, en píxeles.
 padding = 8
 
+# Solo en Windows: comandos de Linux (grep, ls, cat, touch, sed, head, tail...)
+# también en PowerShell y cmd. Usa los que trae Git para Windows. Su carpeta se
+# añade al final del PATH de cada pestaña, así que no sustituye a ningún
+# programa de Windows, y el PATH del sistema no cambia.
+linux_commands = true
+
 [font]
 # Se usa la primera fuente de la lista que esté disponible. JetBrains Mono
 # viene incluida en la terminal; las demás deben estar instaladas en el equipo.
@@ -61,9 +67,13 @@ dim = 0.75
 port = 9333
 
 [input]
-# Mientras escribes un comando, sugiere en gris uno anterior que empiece igual.
-# La flecha derecha lo acepta.
+# Mientras escribes un comando, sugiere en gris uno anterior que empiece igual
+# o, si no hay ninguno, un comando habitual. La flecha derecha lo acepta.
 suggestions = true
+# Línea de ayuda bajo la terminal: explica el comando que escribes, avisa si
+# es de otro sistema (por ejemplo "cls" en Linux) y propone el equivalente.
+# Ctrl + . aplica el cambio propuesto.
+hints = true
 # Cuántos comandos se recuerdan. 0 = no recordar ninguno.
 # No se recuerdan los que parecen llevar una contraseña o un token, ni los
 # que empiezan por un espacio.

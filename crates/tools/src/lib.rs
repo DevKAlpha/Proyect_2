@@ -14,7 +14,7 @@ mod agents;
 mod path;
 
 pub use agents::{detect_agents, detect_agents_with, AgentStatus};
-pub use path::fresh_path;
+pub use path::{fresh_path, programs_on};
 
 /// A tool and whether this machine has it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

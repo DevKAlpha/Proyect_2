@@ -11,7 +11,9 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 - Proyectos: carpetas con sus terminales, ordenadas en una barra lateral. Se guardan entre sesiones.
 - Agentes de IA: detecta Claude Code, Codex, Gemini CLI, OpenCode y GitHub Copilot CLI. Los instalados se abren desde el menú de pestaña nueva; los que faltan se instalan desde ahí. Puedes añadir cualquier otro en la configuración.
 - Navegador de pruebas: un navegador aislado que los agentes controlan para probar aplicaciones web.
-- Recuerda tus comandos y los sugiere mientras escribes.
+- Recuerda tus comandos y los sugiere mientras escribes. Sin historial, sugiere comandos habituales.
+- Una línea de ayuda explica el comando que escribes, avisa si es de otro sistema o tiene una errata y propone el cambio.
+- Comandos de Linux (`grep`, `ls`, `cat`, `touch`...) también en PowerShell y cmd.
 - Borra parte de un comando seleccionándola con el ratón o con el teclado.
 - Personalizable: temas, colores, fuente, cursor e imagen de fondo.
 - Fuente JetBrains Mono incluida, texto nítido en pantallas de alta densidad y zoom con el teclado.
@@ -31,6 +33,7 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 | `Ctrl+C`                       | Copiar si hay texto seleccionado; si no, interrumpir el programa |
 | `Ctrl+V` / `Ctrl+Shift+V`      | Pegar                                                            |
 | `→`                            | Aceptar el comando sugerido en gris                              |
+| `Ctrl+.`                       | Aplicar el cambio que propone la línea de ayuda                  |
 | `Ctrl+←` / `Ctrl+→`            | Seleccionar el comando carácter a carácter                       |
 | `Ctrl+↑` / `Ctrl+↓`            | Seleccionar por filas, si el comando ocupa varias                |
 | `Ctrl+Inicio` / `Ctrl+Fin`     | Seleccionar hasta el principio / el final del comando            |
@@ -54,14 +57,32 @@ Se guarda la lista (nombres, carpetas, qué ejecuta cada terminal). El texto y e
 
 ## Mientras escribes un comando
 
-**Sugerencias.** La terminal recuerda los comandos que ejecutas. Al escribir, muestra en gris el más reciente que empieza igual; la flecha derecha lo completa.
+**Sugerencias.** La terminal recuerda los comandos que ejecutas. Al escribir, muestra en gris el más reciente que empieza igual; la flecha derecha lo completa. Si ninguno empieza así, sugiere un comando habitual (`gi` propone `git`), solo de programas que tienes instalados.
+
+**Línea de ayuda.** Bajo la terminal, una línea habla del comando que escribes:
+
+- Qué hace: `git commit` «Guarda los cambios preparados en el historial».
+- Si es de otro sistema y aquí no existe: `cls` en Linux propone `clear`; `ipconfig` propone `ip addr`.
+- Si funciona distinto aquí: `ls -la` en PowerShell propone `ls -Force`; `export PORT=3000` propone `$env:PORT = "3000"`.
+- Si parece una errata: `gti` propone `git`.
+- Si es fácil arrepentirse: `rm -rf`, `git push --force`, `git reset --hard` y parecidos muestran un aviso. El aviso no impide ejecutar el comando.
+- Si el programa no está instalado.
+
+Cuando propone un cambio, `Ctrl+.` o el botón «Cambiar» lo aplican, y sigues escribiendo donde estabas. En el primer prompt de cada terminal la línea muestra un consejo de uso.
+
+La ayuda sale de una lista local de comandos habituales y de los programas instalados en el equipo. No usa internet ni IA, y nada de lo que escribes sale de la app. Solo mira el primer comando de la línea.
 
 **Borrar seleccionando.** Selecciona parte del comando y pulsa `Supr` o `Retroceso` para borrarla:
 
 - Con el ratón: arrastra sobre el texto del comando.
 - Con el teclado: mantén `Ctrl` y mueve con las flechas. Funciona también en comandos largos que ocupan varias filas.
 
-Las dos cosas funcionan en PowerShell, Git Bash, bash y cmd. En WSL, zsh y fish todavía no. Solo actúan mientras escribes un comando: dentro de un programa (un editor, un agente de IA) todas las teclas van al programa sin cambios.
+Todo esto funciona en PowerShell, cmd, Git Bash, bash, zsh, fish y WSL (cuando el shell de la distribución es bash). Solo actúa mientras escribes un comando: dentro de un programa (un editor, un agente de IA) todas las teclas van al programa sin cambios.
+
+- PowerShell y fish ya dibujan su propia sugerencia tras el cursor. Donde la muestran, la terminal no pinta la suya encima.
+- En fish, la terminal dibuja esa sugerencia atenuada para distinguirla de lo que escribes.
+- En zsh, la terminal lee un archivo de arranque propio, guardado en su carpeta de datos, que carga después los tuyos. Tus archivos de zsh no se tocan.
+- En WSL, la ayuda no sabe qué programas hay dentro de Linux: no avisa de erratas ni de programas sin instalar.
 
 Con `Ctrl` como tecla de selección, `Ctrl+←` y `Ctrl+→` dejan de saltar por palabras mientras escribes un comando. Si prefieres conservar ese salto, selecciona con `Shift`:
 
@@ -82,9 +103,21 @@ select_with = "shift"
 - No se guarda un comando que empieza por un espacio. Úsalo cuando no quieras dejar rastro.
 - No se guarda lo que escribes dentro de un programa, ni las contraseñas que un programa te pide: la terminal lee el comando de la pantalla, y una contraseña no se muestra.
 - «Olvidar comandos recordados», en la barra lateral, los borra todos.
-- `history_size = 0` en `[input]` desactiva el recuerdo; `suggestions = false` oculta las sugerencias.
+- `history_size = 0` en `[input]` desactiva el recuerdo; `suggestions = false` oculta las sugerencias; `hints = false` quita la línea de ayuda.
 
 El filtro de credenciales reduce el riesgo, no lo elimina: un secreto escrito de otra forma sí se guardaría.
+
+## Comandos de Linux
+
+En Linux, la terminal abre primero tu shell de inicio de sesión. La ayuda al escribir funciona en bash, zsh y fish.
+
+En Windows hay tres formas de usar comandos de Linux:
+
+- **En PowerShell y cmd.** Si tienes Git para Windows, sus herramientas Unix (`grep`, `ls`, `cat`, `touch`, `sed`, `awk`, `head`, `tail`, `which` y más) funcionan también ahí. Su carpeta se añade al final del PATH de cada pestaña: no sustituye a ningún programa de Windows y el PATH del sistema no cambia. Se desactiva con `linux_commands = false` en la configuración.
+- **En Git Bash.** Un bash completo con esas mismas herramientas.
+- **En WSL.** Una distribución Linux real, con `apt`, `sudo` y todo lo demás.
+
+En PowerShell, `ls`, `cat`, `rm`, `cp` y `mv` son nombres de comandos propios de PowerShell y no aceptan las opciones de Linux. La línea de ayuda avisa y propone la forma de PowerShell.
 
 ## Agentes de IA
 

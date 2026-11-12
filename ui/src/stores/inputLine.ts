@@ -18,7 +18,21 @@ export interface CellLike {
   getChars(): string;
   getWidth(): number;
   isDim(): number;
+  /** Whether the text colour is one of the numbered colours. */
+  isFgPalette(): boolean;
+  getFgColor(): number;
 }
+
+/** The numbered colour "bright black": the grey shells draw their hints in. */
+const HINT_GREY = 8;
+
+/**
+ * Whether the cell looks like a hint drawn by the shell and not like typed
+ * text. PowerShell and fish (as this app starts it) draw their suggestion
+ * dim; zsh with its suggestions plugin draws it in grey.
+ */
+const isShellHint = (cell: CellLike) =>
+  cell.isDim() !== 0 || (cell.isFgPalette() && cell.getFgColor() === HINT_GREY);
 export interface LineLike {
   readonly isWrapped: boolean;
   getCell(x: number): CellLike | undefined;
@@ -39,6 +53,8 @@ export interface InputLine {
    * after the text. Always `chars.length + 1` entries.
    */
   cells: Cell[];
+  /** Whether the shell is drawing a suggestion of its own after the text. */
+  shellHint: boolean;
 }
 
 /** A stretch of the line, as indexes into `chars`: from `from` up to, not including, `to`. */
@@ -76,7 +92,7 @@ export function readInputLine(
       if (!cell) break;
       // Second half of a wide character: the character sits in the cell before.
       if (cell.getWidth() === 0) continue;
-      drawn.push({ x, y, char: cell.getChars() || ' ', dim: cell.isDim() !== 0 });
+      drawn.push({ x, y, char: cell.getChars() || ' ', dim: isShellHint(cell) });
     }
   }
   if (compare(cursor, start) < 0 || cursor.y > lastRow) return null;
@@ -85,8 +101,8 @@ export function readInputLine(
   const cursorIndex = atCursor === -1 ? drawn.length : atCursor;
 
   // The text ends at its last real character. Blanks after it are empty
-  // screen. Dim text after the cursor is a hint drawn by the shell itself
-  // (PowerShell predictions), not something the user typed.
+  // screen. Dim or grey text after the cursor is a hint drawn by the shell
+  // itself (its own suggestion), not something the user typed.
   let end = cursorIndex;
   for (let index = drawn.length - 1; index >= cursorIndex; index--) {
     const cell = drawn[index]!;
@@ -104,6 +120,7 @@ export function readInputLine(
     text: chars.join(''),
     cursor: cursorIndex,
     cells: [...typed.map(({ x, y }) => ({ x, y })), { x: after.x, y: after.y }],
+    shellHint: drawn.slice(end).some((cell) => cell.char !== ' '),
   };
 }
 
@@ -172,10 +189,37 @@ export function spanOf(line: InputLine, range: Range, cols: number) {
  * their other form.
  */
 export function deleteKeys(cursor: number, range: Range, applicationCursor: boolean): string {
-  const arrow = (letter: string) => (applicationCursor ? `\x1bO${letter}` : `\x1b[${letter}`);
-  const distance = range.to - cursor;
-  const moves = (distance >= 0 ? arrow('C') : arrow('D')).repeat(Math.abs(distance));
-  return moves + '\x7f'.repeat(range.to - range.from);
+  return moveKeys(range.to - cursor, applicationCursor) + '\x7f'.repeat(range.to - range.from);
+}
+
+/** Arrow keys that move the shell's cursor `distance` characters: right when positive. */
+function moveKeys(distance: number, applicationCursor: boolean): string {
+  const letter = distance >= 0 ? 'C' : 'D';
+  return (applicationCursor ? `\x1bO${letter}` : `\x1b[${letter}`).repeat(Math.abs(distance));
+}
+
+/**
+ * The keys that put `text` in the place of `range` and then take the cursor
+ * back to the character it was on. A cursor that was inside the range ends
+ * right after the new text.
+ */
+export function replaceKeys(
+  cursor: number,
+  range: Range,
+  text: string,
+  applicationCursor: boolean,
+): string {
+  const typed = [...text].length;
+  // Where the shell leaves its cursor after the backspaces and the typing.
+  const landed = range.from + typed;
+  let wanted = landed;
+  if (cursor >= range.to) wanted = cursor - (range.to - range.from) + typed;
+  else if (cursor <= range.from) wanted = cursor;
+  return (
+    deleteKeys(cursor, range, applicationCursor) +
+    text +
+    moveKeys(wanted - landed, applicationCursor)
+  );
 }
 
 /**

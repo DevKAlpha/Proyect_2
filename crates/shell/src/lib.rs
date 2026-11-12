@@ -10,7 +10,7 @@ use serde::Serialize;
 
 mod integration;
 
-pub use integration::{prompt_marks, Integration};
+pub use integration::{install_support, prompt_marks, Integration};
 
 /// A shell the terminal can open in a tab.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -125,6 +125,26 @@ fn windows(probe: &dyn Probe) -> Vec<ShellProfile> {
         found.push(profile("wsl", "WSL", &path, &[]));
     }
     found
+}
+
+/// The folder with the Unix tools that come with Git for Windows (`grep`,
+/// `ls`, `cat`, `touch`...), found next to Git Bash. `None` on a machine
+/// without Git Bash, and on every system that has those tools already.
+pub fn unix_tools_dir(shells: &[ShellProfile]) -> Option<PathBuf> {
+    let bash = shells.iter().find(|shell| shell.id == "git-bash")?;
+    // Git Bash is `<Git>/bin/bash.exe`; the tools are in `<Git>/usr/bin`.
+    let tools = Path::new(&bash.program)
+        .parent()?
+        .parent()?
+        .join("usr")
+        .join("bin");
+    tools.is_dir().then_some(tools)
+}
+
+/// Whether `shell_id` is a shell of Windows itself, with Windows commands.
+/// The others (Git Bash, WSL, every Unix shell) speak Linux commands.
+pub fn is_windows_native(shell_id: &str) -> bool {
+    matches!(shell_id, "pwsh" | "powershell" | "cmd")
 }
 
 fn unix(probe: &dyn Probe, args: &[&str]) -> Vec<ShellProfile> {
@@ -259,6 +279,42 @@ mod tests {
         };
 
         assert_eq!(detect_with(Os::MacOs, &probe)[0].args, ["-l"]);
+    }
+
+    #[test]
+    fn unix_tools_are_found_next_to_git_bash() {
+        let git = tempfile::tempdir().unwrap();
+        let tools = git.path().join("usr").join("bin");
+        std::fs::create_dir_all(&tools).unwrap();
+        let bash = git.path().join("bin").join("bash.exe");
+        let shells = [
+            profile("pwsh", "PowerShell", Path::new("pwsh.exe"), &[]),
+            profile("git-bash", "Git Bash", &bash, &[]),
+        ];
+
+        assert_eq!(unix_tools_dir(&shells), Some(tools));
+    }
+
+    #[test]
+    fn no_unix_tools_without_git_bash_or_without_their_folder() {
+        let git = tempfile::tempdir().unwrap();
+        let bash = git.path().join("bin").join("bash.exe");
+
+        assert_eq!(unix_tools_dir(&[]), None);
+        assert_eq!(
+            unix_tools_dir(&[profile("git-bash", "Git Bash", &bash, &[])]),
+            None
+        );
+    }
+
+    #[test]
+    fn only_the_shells_of_windows_itself_are_windows_native() {
+        for id in ["pwsh", "powershell", "cmd"] {
+            assert!(is_windows_native(id), "{id}");
+        }
+        for id in ["git-bash", "wsl", "bash", "zsh", "fish"] {
+            assert!(!is_windows_native(id), "{id}");
+        }
     }
 
     #[test]

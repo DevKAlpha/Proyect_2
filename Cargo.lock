@@ -4219,6 +4219,7 @@ name = "term-pty"
 version = "0.1.0"
 dependencies = [
  "portable-pty",
+ "tempfile",
  "term-shell",
  "thiserror 2.0.21",
 ]
@@ -4228,6 +4229,7 @@ name = "term-shell"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "tempfile",
  "which",
 ]
 
@@ -4236,6 +4238,7 @@ name = "term-tools"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "tempfile",
  "which",
  "winreg 0.55.0",
 ]

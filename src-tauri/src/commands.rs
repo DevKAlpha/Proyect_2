@@ -1,5 +1,6 @@
 //! IPC commands the UI can call. Each one is a thin call into a core crate.
 
+use std::ffi::OsString;
 use std::path::Path;
 
 use serde::Serialize;
@@ -38,6 +39,61 @@ pub fn list_tools() -> Vec<ToolStatus> {
 #[tauri::command]
 pub fn list_agents() -> Vec<AgentStatus> {
     term_tools::detect_agents()
+}
+
+/// The programs a tab of the shell `shell_id` can run, as the user types
+/// them. `None` when this side cannot know: WSL keeps its programs inside
+/// Linux. Runs off the main thread, because it reads every folder on PATH.
+#[tauri::command(async)]
+pub fn list_programs(state: State<'_, AppState>, shell_id: String) -> Option<Vec<String>> {
+    let shell = state.shells.iter().find(|shell| shell.id == shell_id)?;
+    if shell.id == "wsl" {
+        return None;
+    }
+    let mut path = search_path(&state, shell)
+        .or_else(|| std::env::var_os("PATH"))
+        .unwrap_or_default();
+    // Git Bash adds its own tools to PATH when it starts.
+    if shell.id == "git-bash" {
+        path = with_folder(path, state.unix_tools.as_deref());
+    }
+    Some(term_tools::programs_on(&path))
+}
+
+/// The PATH a tab of `shell` starts with, or `None` to inherit the one of
+/// this process.
+fn search_path(state: &AppState, shell: &ShellProfile) -> Option<OsString> {
+    // A tool installed after the app started must work in the next tab.
+    let fresh = term_tools::fresh_path();
+    // Linux commands in the shells of Windows: the Unix tools of Git go
+    // last, so they never take the place of a Windows program.
+    let tools = state
+        .unix_tools
+        .as_deref()
+        .filter(|_| term_shell::is_windows_native(&shell.id) && state.config().linux_commands);
+    match tools {
+        Some(_) => {
+            let base = fresh
+                .or_else(|| std::env::var_os("PATH"))
+                .unwrap_or_default();
+            Some(with_folder(base, tools))
+        }
+        None => fresh,
+    }
+}
+
+/// `path` followed by `folder`, when there is one and it is not there yet.
+fn with_folder(path: OsString, folder: Option<&Path>) -> OsString {
+    let Some(folder) = folder else {
+        return path;
+    };
+    let mut folders: Vec<_> = std::env::split_paths(&path).collect();
+    if folders.iter().any(|existing| existing == folder) {
+        return path;
+    }
+    folders.push(folder.to_path_buf());
+    // Joining fails only for a folder name that cannot be on PATH at all.
+    std::env::join_paths(folders).unwrap_or(path)
 }
 
 #[tauri::command]
@@ -190,12 +246,15 @@ pub fn pty_spawn(
 
     // The shell marks its prompt, so the terminal knows which text is the
     // command being typed. Suggestions and editing by selection rest on it.
-    let marks = term_shell::prompt_marks(&shell.id, &|key| std::env::var(key).ok());
+    let marks = term_shell::prompt_marks(
+        &shell.id,
+        &|key| std::env::var(key).ok(),
+        state.shell_support.as_deref(),
+    );
     let mut args = shell.args.clone();
     args.extend(marks.args);
     let mut env = marks.env;
-    // A tool installed after the app started must work in the next tab.
-    if let Some(path) = term_tools::fresh_path() {
+    if let Some(path) = search_path(&state, shell) {
         env.push(("PATH".to_owned(), path.to_string_lossy().into_owned()));
     }
 
