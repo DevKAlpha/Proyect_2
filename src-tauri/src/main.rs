@@ -20,6 +20,8 @@ fn main() {
         .manage(state::AppState::load())
         .setup(|app| {
             state::watch_config(app.handle());
+            // Pictures pasted days ago are private data nobody needs any more.
+            commands::sweep_pasted_pictures();
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -30,6 +32,9 @@ fn main() {
             commands::ssh_status,
             commands::get_config,
             commands::open_config_file,
+            commands::list_templates,
+            commands::apply_template,
+            commands::clipboard_paste,
             commands::read_background,
             commands::load_workspace,
             commands::save_workspace,

@@ -10,9 +10,11 @@ use std::path::{Path, PathBuf};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 
+mod templates;
 mod theme;
 mod workspace;
 
+pub use templates::{apply_template, templates, Template};
 pub use theme::{Theme, ANSI_NAMES};
 pub use workspace::{workspace_path, Project, SavedTerminal, Workspace};
 
@@ -36,6 +38,8 @@ pub enum ConfigError {
     UnsupportedVersion(u32),
     #[error("could not watch the configuration file: {0}")]
     Watch(#[from] notify::Error),
+    #[error("there is no template named `{0}`")]
+    UnknownTemplate(String),
     #[error("the saved projects could not be read or written: {0}")]
     Workspace(serde_json::Error),
 }

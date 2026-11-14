@@ -6,7 +6,9 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type ITerminalOptions } from '@xterm/xterm';
 import {
+  clipboardPaste,
   killPty,
+  onFilesDropped,
   openExternal,
   openFolder,
   resizePty,
@@ -18,6 +20,7 @@ import {
 } from '../ipc';
 import type { Hint } from '../stores/guide';
 import { useHistory } from '../stores/history';
+import { pathsToInput } from '../stores/paste';
 import { usePrograms } from '../stores/programs';
 import { useRemote } from '../stores/remote';
 import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
@@ -65,9 +68,10 @@ function terminalOptions(config: Config, zoom: number, seeThrough: boolean): ITe
  * "new line, do not send yet". Shells treat it as a plain Enter.
  *
  * Ctrl+C copies only when text is selected; otherwise it stays the interrupt
- * key. Ctrl+Shift+C and Ctrl+Shift+V always mean copy and paste.
+ * key. Ctrl+Shift+C and Ctrl+Shift+V always mean copy and paste. `paste`
+ * reads the clipboard, which can hold files or a picture as well as text.
  */
-function terminalKeys(term: Terminal, assist: PromptAssist) {
+function terminalKeys(term: Terminal, assist: PromptAssist, paste: () => void) {
   return (event: KeyboardEvent): boolean => {
     // Suggestions and editing by selection come first: they only take a key
     // while the user is typing a command at a prompt.
@@ -94,7 +98,7 @@ function terminalKeys(term: Terminal, assist: PromptAssist) {
     if (key === 'v') {
       // Without this the webview would paste a second time by itself.
       event.preventDefault();
-      void readText().then((text) => text && term.paste(text));
+      paste();
       return false;
     }
     return true;
@@ -119,6 +123,8 @@ export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const assistRef = useRef<PromptAssist | null>(null);
+  // Whether this pane is the one on screen, for events that reach every pane.
+  const activeRef = useRef(active);
   // What the line under the terminal says about the command being typed.
   const [hint, setHint] = useState<Hint | null>(null);
   // The session of this pane, for the buttons of the bar under it.
@@ -216,7 +222,36 @@ export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
     // background (an editor, a Git client).
     window.addEventListener('focus', refreshPlace);
     assistRef.current = assist;
-    term.attachCustomKeyEventHandler(terminalKeys(term, assist));
+
+    // Files go into a terminal as their paths, written for its shell. That
+    // is how programs take them, AI agents included: a pasted picture path
+    // becomes an attached picture.
+    const insertFiles = (paths: string[]) => {
+      const { text, skipped } = pathsToInput(paths, tab.shellId);
+      if (text) term.paste(text);
+      if (skipped > 0) {
+        setNotice(
+          skipped === 1
+            ? 'Se omitió 1 vídeo: los vídeos aún no se pueden pegar.'
+            : `Se omitieron ${skipped} vídeos: los vídeos aún no se pueden pegar.`,
+        );
+      }
+    };
+    const paste = () => {
+      clipboardPaste()
+        .then((pasted) => {
+          if (disposed) return;
+          if (pasted.text) term.paste(pasted.text);
+          else insertFiles(pasted.paths);
+        })
+        // The clipboard could not be read in full: text alone still can be.
+        .catch(() => void readText().then((text) => text && !disposed && term.paste(text)));
+    };
+    // A drop lands on the window, and only the terminal on screen takes it.
+    const dropped = onFilesDropped((paths) => {
+      if (activeRef.current) insertFiles(paths);
+    });
+    term.attachCustomKeyEventHandler(terminalKeys(term, assist, paste));
     // A program installed a moment ago starts to work in this new terminal,
     // so this is when the list of programs is read again.
     void usePrograms.getState().refresh(tab.shellId);
@@ -270,6 +305,7 @@ export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
       disposed = true;
       observer.disconnect();
       window.removeEventListener('focus', refreshPlace);
+      void dropped.then((stop) => stop()).catch(() => {});
       assist.dispose();
       assistRef.current = null;
       sessionRef.current = null;
@@ -298,6 +334,7 @@ export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
   }, [config, zoom]);
 
   useEffect(() => {
+    activeRef.current = active;
     if (active) termRef.current?.focus();
   }, [active]);
 

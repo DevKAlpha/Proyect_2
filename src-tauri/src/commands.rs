@@ -9,8 +9,9 @@ use tauri::{AppHandle, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use term_browser::Connector;
-use term_config::{Config, Workspace};
+use term_config::{Config, Template, Workspace};
 use term_context::GitBranch;
+use term_paste::Clip;
 use term_pty::{PtySession, SpawnOptions};
 use term_shell::{CwdScanner, Os, ShellProfile};
 use term_tools::{AgentStatus, SshStatus, ToolStatus};
@@ -109,6 +110,91 @@ fn with_folder(path: OsString, folder: Option<&Path>) -> OsString {
 #[tauri::command]
 pub fn get_config(state: State<'_, AppState>) -> Config {
     state.config()
+}
+
+/// The ready-made looks the user can apply.
+#[tauri::command]
+pub fn list_templates() -> &'static [Template] {
+    term_config::templates()
+}
+
+/// Gives the configuration file the look of template `id`.
+///
+/// The file is the user's, so the one being replaced is first copied next
+/// to it as `config.backup.toml`. Only the tables a template owns change.
+/// The watcher on the file then applies the new look, as after any edit.
+#[tauri::command]
+pub fn apply_template(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let path = state
+        .config_path()
+        .ok_or("this system has no configuration folder")?;
+    // A file that was deleted meanwhile starts again from the default one.
+    let current =
+        std::fs::read_to_string(path).unwrap_or_else(|_| term_config::DEFAULT_TOML.to_owned());
+    let applied = term_config::apply_template(&current, &id).map_err(|error| error.to_string())?;
+    std::fs::write(path.with_file_name("config.backup.toml"), &current)
+        .and_then(|()| std::fs::write(path, applied))
+        .map_err(|error| format!("could not write the configuration file: {error}"))
+}
+
+/// What a paste puts into the terminal.
+#[derive(Serialize)]
+pub struct Pasted {
+    /// Text on the clipboard, pasted as it is.
+    text: Option<String>,
+    /// Files on the clipboard, or the file a picture was just saved to.
+    paths: Vec<String>,
+}
+
+/// Pictures pasted more than this long ago are deleted at start.
+const PASTED_PICTURES_KEPT: std::time::Duration = std::time::Duration::from_secs(7 * 24 * 3600);
+
+/// Folder where pictures pasted from the clipboard are saved. It stays on
+/// this machine: a screenshot can show anything.
+fn pasted_folder() -> Option<std::path::PathBuf> {
+    Some(dirs::data_local_dir()?.join("terminal").join("pasted"))
+}
+
+/// Deletes the pasted pictures that are old. Called once at start.
+pub fn sweep_pasted_pictures() {
+    if let Some(folder) = pasted_folder() {
+        term_paste::sweep(&folder, PASTED_PICTURES_KEPT);
+    }
+}
+
+/// Reads the clipboard for a paste. Text comes back as text. Files come
+/// back as their paths, and a picture is saved to a file first: a terminal
+/// only takes characters, and programs take files by path.
+#[tauri::command(async)]
+pub fn clipboard_paste() -> Result<Pasted, String> {
+    let as_text = |path: std::path::PathBuf| path.to_string_lossy().into_owned();
+    Ok(match term_paste::read_clipboard()? {
+        Clip::Text(text) => Pasted {
+            text: Some(text),
+            paths: Vec::new(),
+        },
+        Clip::Files(files) => Pasted {
+            text: None,
+            paths: files.into_iter().map(as_text).collect(),
+        },
+        Clip::Picture(picture) => {
+            let folder = pasted_folder().ok_or("this system has no folder for application data")?;
+            let moment = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|since| since.as_millis())
+                .unwrap_or_default();
+            let path = term_paste::save_picture(&folder, &picture, &format!("imagen-{moment}"))
+                .map_err(|error| format!("the picture could not be saved: {error}"))?;
+            Pasted {
+                text: None,
+                paths: vec![as_text(path)],
+            }
+        }
+        Clip::Empty => Pasted {
+            text: None,
+            paths: Vec::new(),
+        },
+    })
 }
 
 /// Opens the configuration file in the user's editor. Customising the

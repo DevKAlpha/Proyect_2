@@ -4223,6 +4223,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "term-paste"
+version = "0.1.0"
+dependencies = [
+ "arboard",
+ "png",
+ "tempfile",
+]
+
+[[package]]
 name = "term-pty"
 version = "0.1.0"
 dependencies = [
@@ -4266,6 +4275,7 @@ dependencies = [
  "term-config",
  "term-context",
  "term-history",
+ "term-paste",
  "term-pty",
  "term-shell",
  "term-tools",

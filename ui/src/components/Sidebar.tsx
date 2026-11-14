@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
-import type { BrowserStatus } from '../ipc';
+import type { BrowserStatus, Template } from '../ipc';
 import { tabsOf, type Project, type Tab } from '../stores/tabs';
 
 interface SidebarProps {
@@ -26,6 +26,11 @@ interface SidebarProps {
   onClearHistory: () => void;
   onToggleBrowser: () => void;
   onOpenConfig: () => void;
+  /** Ready-made looks: colours, font and cursor. */
+  templates: Template[];
+  /** Name of the template applied a moment ago, if any. */
+  appliedTemplate: string | null;
+  onApplyTemplate: (id: string) => void;
 }
 
 const focusRing = 'outline-none focus-visible:ring-2 focus-visible:ring-accent';
@@ -293,6 +298,43 @@ export function Sidebar(props: SidebarProps) {
               ? 'Pulsa otra vez para olvidarlos'
               : `Olvidar ${props.rememberedCommands} comandos recordados`}
           </button>
+        )}
+        {props.templates.length > 0 && (
+          // A native select: keyboard and screen-reader support for free.
+          <select
+            aria-label="Plantillas de aspecto"
+            title="Cambia colores, fuente y cursor por un aspecto ya hecho. Lo demás de tu configuración no cambia, y se guarda una copia de la anterior."
+            value=""
+            onChange={(event) => props.onApplyTemplate(event.target.value)}
+            className={`cursor-pointer appearance-none bg-transparent ${footerButton}`}
+          >
+            <option value="" disabled hidden>
+              Plantillas
+            </option>
+            {[false, true].map((detailed) => (
+              <optgroup
+                key={String(detailed)}
+                label={
+                  detailed ? 'Detalladas: todos los colores escritos' : 'Sencillas: pocas líneas'
+                }
+                className="bg-bg text-fg"
+              >
+                {props.templates
+                  .filter((template) => template.detailed === detailed)
+                  .map((template) => (
+                    <option key={template.id} value={template.id} className="bg-bg text-fg">
+                      {template.name}. {template.about}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
+        {props.appliedTemplate && (
+          <p role="status" className="px-2 text-fg/55 select-text">
+            Plantilla «{props.appliedTemplate}» aplicada. Ábrela con «Personalizar» para ver cómo
+            está hecha. Tu configuración anterior quedó en config.backup.toml.
+          </p>
         )}
         <button
           type="button"

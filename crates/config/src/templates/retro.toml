@@ -1,0 +1,41 @@
+# ── Plantilla «Fósforo verde» ───────────────────────────────────────────────
+# Detallada: la pantalla de un ordenador de los años ochenta. Casi todo es
+# verde a propósito; los errores siguen saliendo en rojo para que se vean.
+
+[font]
+family = "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+# Letra grande y líneas juntas, como en un monitor antiguo.
+size = 16
+line_height = 1.15
+
+[cursor]
+style = "block"
+blink = true
+
+[theme]
+preset = "dark"
+background = "#0b120b"
+foreground = "#4af26a"
+cursor = "#7dff97"
+selection = "#4af26a44"
+accent = "#4af26a"
+
+# Distintos tonos de verde en lugar de colores distintos: los programas
+# siguen diferenciando cosas, pero la pantalla conserva un solo color.
+[theme.ansi]
+black = "#0b120b"
+red = "#ff5f56"
+green = "#4af26a"
+yellow = "#c8f05a"
+blue = "#3cc99a"
+magenta = "#8fe08f"
+cyan = "#5fe6c0"
+white = "#b6f7c1"
+bright_black = "#3f7a4b"
+bright_red = "#ff8a80"
+bright_green = "#7dff97"
+bright_yellow = "#e0ff8a"
+bright_blue = "#6ff0c0"
+bright_magenta = "#b4f5b4"
+bright_cyan = "#8fffe0"
+bright_white = "#eaffee"

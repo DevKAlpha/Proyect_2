@@ -6,6 +6,7 @@
  */
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
 /** A shell the terminal can open in a tab. */
@@ -135,6 +136,45 @@ export const listPrograms = (shellId: string) =>
   invoke<string[] | null>('list_programs', { shellId });
 
 export const getConfig = () => invoke<Config>('get_config');
+
+/** A ready-made look the user can apply: colours, font and cursor. */
+export interface Template {
+  id: string;
+  name: string;
+  /** One line about what it looks like. */
+  about: string;
+  /** Whether it writes every colour, or only a few lines. */
+  detailed: boolean;
+}
+
+export const listTemplates = () => invoke<Template[]>('list_templates');
+
+/**
+ * Gives the configuration file the look of a template. The file it replaces
+ * is kept next to it as `config.backup.toml`. The new look arrives through
+ * `onConfigChanged`, like any other edit of the file.
+ */
+export const applyTemplate = (id: string) => invoke<void>('apply_template', { id });
+
+/** What a paste puts into the terminal. */
+export interface Pasted {
+  /** Text on the clipboard, or `null` when it holds files or a picture. */
+  text: string | null;
+  /** Files on the clipboard, or the file a picture was just saved to. */
+  paths: string[];
+}
+
+/**
+ * Reads the clipboard for a paste. A picture has no path of its own, so the
+ * Rust side saves it to a file and answers with that path.
+ */
+export const clipboardPaste = () => invoke<Pasted>('clipboard_paste');
+
+/** Runs `handler` with the paths of the files the user drops on the window. */
+export const onFilesDropped = (handler: (paths: string[]) => void): Promise<UnlistenFn> =>
+  getCurrentWebview().onDragDropEvent((event) => {
+    if (event.payload.type === 'drop') handler(event.payload.paths);
+  });
 
 /** Opens the configuration file in the user's editor. */
 export const openConfigFile = () => invoke<void>('open_config_file');

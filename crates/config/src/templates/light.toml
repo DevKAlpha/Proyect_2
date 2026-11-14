@@ -1,0 +1,12 @@
+# ── Plantilla «Clara» ───────────────────────────────────────────────────────
+# Sencilla: una sola línea cambia todos los colores. `preset` elige un tema
+# completo y lo demás se queda como estaba.
+
+[theme]
+# Tema de partida: "dark", "light" o "high-contrast".
+preset = "light"
+
+[cursor]
+# Una barra fina se ve mejor que un bloque sobre fondo claro.
+style = "bar"
+blink = true

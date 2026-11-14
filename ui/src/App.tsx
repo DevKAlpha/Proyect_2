@@ -124,6 +124,9 @@ export function App() {
   const dismissConfigError = useSettings((state) => state.dismissConfigError);
   const backgroundUrl = useSettings((state) => state.backgroundUrl);
   const sidebarOpen = useSettings((state) => state.sidebarOpen);
+  const templates = useSettings((state) => state.templates);
+  const appliedTemplate = useSettings((state) => state.appliedTemplate);
+  const applyTemplate = useSettings((state) => state.applyTemplate);
   const toggleSidebar = useSettings((state) => state.toggleSidebar);
   const tabs = useTabs((state) => state.tabs);
   const projects = useTabs((state) => state.projects);
@@ -197,6 +200,9 @@ export function App() {
           onClearHistory={() => void clearHistory()}
           onToggleBrowser={() => void toggleBrowser()}
           onOpenConfig={() => void openConfigFile()}
+          templates={templates}
+          appliedTemplate={appliedTemplate}
+          onApplyTemplate={(id) => void applyTemplate(id)}
         />
       )}
 

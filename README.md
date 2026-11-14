@@ -20,6 +20,8 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 - Personalizable: temas, colores, fuente, cursor e imagen de fondo.
 - Fuente JetBrains Mono incluida, texto nítido en pantallas de alta densidad y zoom con el teclado.
 - Avisa si faltan Node.js o Docker y los instala con un clic, en una pestaña donde ves el comando.
+- Pega y suelta archivos e imágenes: entran en la terminal como rutas, que es como los agentes de IA reciben una captura o un documento.
+- Plantillas de aspecto, sencillas y detalladas, para cambiar el look con un clic y aprender a personalizarlo.
 - Copiar y pegar, enlaces que se abren en el navegador.
 
 ## Atajos
@@ -33,7 +35,7 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Texto más grande / más pequeño / tamaño normal                   |
 | `Ctrl+Shift+C`                 | Copiar                                                           |
 | `Ctrl+C`                       | Copiar si hay texto seleccionado; si no, interrumpir el programa |
-| `Ctrl+V` / `Ctrl+Shift+V`      | Pegar                                                            |
+| `Ctrl+V` / `Ctrl+Shift+V`      | Pegar texto, archivos o una imagen                               |
 | `→`                            | Aceptar el comando sugerido en gris                              |
 | `Ctrl+.`                       | Aplicar el cambio que propone la línea de ayuda                  |
 | `Ctrl+←` / `Ctrl+→`            | Seleccionar el comando carácter a carácter                       |
@@ -152,6 +154,28 @@ En Windows hay tres formas de usar comandos de Linux:
 
 En PowerShell, `ls`, `cat`, `rm`, `cp` y `mv` son nombres de comandos propios de PowerShell y no aceptan las opciones de Linux. La línea de ayuda avisa y propone la forma de PowerShell.
 
+## Pegar archivos e imágenes
+
+Una terminal solo recibe texto, así que un archivo entra como su ruta. Es lo que esperan los programas, y sobre todo los agentes de IA: pega la ruta de una captura en Claude Code y la adjunta.
+
+- **Archivos copiados** en el explorador: `Ctrl+V` escribe sus rutas, separadas por espacios.
+- **Una imagen** del portapapeles (una captura de pantalla, una imagen copiada de una web): `Ctrl+V` la guarda como archivo PNG y escribe la ruta de ese archivo.
+- **Arrastrar y soltar** archivos sobre la ventana hace lo mismo, en la terminal que tienes abierta.
+- **Texto**: se pega como siempre.
+
+Sirve cualquier tipo de archivo (imágenes, PDF, documentos, hojas de cálculo, código, comprimidos), menos los vídeos, que se omiten con un aviso en la barra inferior.
+
+- Cada ruta se escribe como la lee el shell de esa terminal. Si tiene espacios u otros caracteres especiales va entre comillas, así el nombre de un archivo nunca se ejecuta como comando. En WSL, `C:\carpeta` se escribe `/mnt/c/carpeta`.
+- Nada se ejecuta al pegar: la ruta queda escrita y tú decides qué hacer con ella.
+- Si el portapapeles tiene a la vez texto y una imagen (pasa al copiar celdas de una hoja de cálculo), se pega el texto.
+- Las imágenes pegadas se guardan en tu equipo y se borran solas a los 7 días:
+
+| Sistema | Carpeta                                         |
+| ------- | ----------------------------------------------- |
+| Windows | `%LOCALAPPDATA%\terminal\pasted`                |
+| Linux   | `~/.local/share/terminal/pasted`                |
+| macOS   | `~/Library/Application Support/terminal/pasted` |
+
 ## Agentes de IA
 
 La flecha junto al `+` abre el menú de pestaña nueva, con cuatro grupos: shells, agentes instalados, agentes que se pueden instalar y navegador de pruebas. Un agente se abre en una pestaña normal del shell por defecto: al salir del agente, el shell sigue ahí.
@@ -216,6 +240,24 @@ size = 15
 
 La imagen de fondo se ve en las pestañas abiertas después de ponerla.
 
+### Plantillas
+
+«Plantillas», en la barra lateral, cambia colores, fuente y cursor por un aspecto ya hecho. Sirven para dos cosas: cambiar el look con un clic y ver cómo se escribe una personalización. Después de aplicar una, «Personalizar» abre tu archivo con el texto de la plantilla, comentado, para que lo cambies a tu gusto.
+
+| Plantilla      | Tipo      | Qué enseña                                             |
+| -------------- | --------- | ------------------------------------------------------ |
+| Predeterminada | Sencilla  | El aspecto de fábrica, con todas las opciones a mano   |
+| Clara          | Sencilla  | Una sola línea (`preset`) cambia todos los colores     |
+| Alto contraste | Sencilla  | Un tema ya hecho y una letra más grande                |
+| Ámbar          | Sencilla  | Retocar tres colores de un tema sin escribirlo entero  |
+| Nórdica        | Detallada | Todos los colores, la fuente y el cursor, en azules    |
+| Drácula        | Detallada | Los 16 colores de los programas, muy vivos             |
+| Papel          | Detallada | Un tema claro escrito color a color                    |
+| Fósforo verde  | Detallada | Un solo color en varios tonos, como un monitor antiguo |
+
+- Una plantilla solo sustituye las secciones `[font]`, `[cursor]` y `[theme]` de tu archivo. El shell, los agentes, la imagen de fondo y el resto de tus ajustes quedan como estaban.
+- Lo que tuvieras escrito en esas tres secciones se reemplaza. Antes de cambiar nada, tu archivo se copia como `config.backup.toml` en la misma carpeta. Solo se guarda una copia: la del último cambio.
+
 El archivo se crea en el primer arranque, con comentarios que explican cada opción:
 
 | Sistema | Ruta                                                 |
@@ -254,6 +296,7 @@ crates/shell    Detección de los shells instalados y lo que cada uno anuncia (p
 crates/context  Lo que rodea a una terminal: la rama de Git de su carpeta
 crates/config   Configuración, temas y proyectos guardados
 crates/history  Comandos recordados, con filtro de credenciales
+crates/paste    Archivos e imágenes del portapapeles, convertidos en rutas
 crates/tools    Herramientas, agentes de IA y equipos de SSH: qué hay y cómo instalar lo que falta
 crates/browser  Navegador de pruebas aislado para los agentes
 src-tauri/      App de escritorio: ventana, comandos IPC y eventos

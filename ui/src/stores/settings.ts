@@ -1,12 +1,15 @@
 import { create } from 'zustand';
 import {
+  applyTemplate,
   getConfig,
   listShells,
+  listTemplates,
   onConfigChanged,
   onConfigError,
   readBackground,
   type Config,
   type ShellProfile,
+  type Template,
 } from '../ipc';
 import { imageType } from './theme';
 
@@ -33,6 +36,16 @@ interface SettingsState {
   /** Object URL of the background picture, or `null` without one. */
   backgroundUrl: string | null;
   sidebarOpen: boolean;
+  /** Ready-made looks the user can apply. */
+  templates: Template[];
+  /** Name of the template applied a moment ago, to tell the user about the copy kept. */
+  appliedTemplate: string | null;
+  /**
+   * Gives the configuration file the look of a template. The new look
+   * arrives like any edit of the file; a failure is shown where
+   * configuration errors are.
+   */
+  applyTemplate: (id: string) => Promise<void>;
   /** Loads configuration and shells, then follows edits of the file. */
   load: () => Promise<void>;
   dismissConfigError: () => void;
@@ -91,6 +104,18 @@ export const useSettings = create<SettingsState>((set, get) => {
     zoom: 0,
     backgroundUrl: null,
     sidebarOpen: readSidebarOpen(),
+    templates: [],
+    appliedTemplate: null,
+
+    applyTemplate: async (id) => {
+      try {
+        await applyTemplate(id);
+        const template = get().templates.find((candidate) => candidate.id === id);
+        set({ appliedTemplate: template?.name ?? id, configError: null });
+      } catch (error) {
+        set({ appliedTemplate: null, configError: String(error) });
+      }
+    },
 
     zoomBy: (step) =>
       set((state) => {
@@ -120,6 +145,10 @@ export const useSettings = create<SettingsState>((set, get) => {
       // whether it can show a picture behind it.
       await applyBackground(config);
       set({ config, shells });
+      // Looks are an extra: without the list the terminal works the same.
+      void listTemplates()
+        .then((templates) => set({ templates }))
+        .catch(() => {});
       // These listeners live as long as the window, so they are never removed.
       await onConfigChanged((next) => {
         set({ config: next, configError: null });

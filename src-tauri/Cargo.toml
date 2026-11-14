@@ -19,6 +19,7 @@ term-browser = { path = "../crates/browser" }
 term-config = { path = "../crates/config" }
 term-context = { path = "../crates/context" }
 term-history = { path = "../crates/history" }
+term-paste = { path = "../crates/paste" }
 term-pty = { path = "../crates/pty" }
 term-shell = { path = "../crates/shell" }
 term-tools = { path = "../crates/tools" }
