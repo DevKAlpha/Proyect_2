@@ -100,7 +100,25 @@ export interface BrowserStatus {
   connectors: { agent_id: string; command: string }[];
 }
 
+/** A machine named in the user's SSH configuration. */
+export interface SshHost {
+  /** The short name the user gave it. `ssh <name>` connects to it. */
+  name: string;
+  /** Who and where it connects to (`user@address`), or `null` when not written down. */
+  address: string | null;
+}
+
+/** What is needed to offer SSH connections to other machines. */
+export interface SshStatus {
+  /** Whether this machine has the `ssh` program. */
+  available: boolean;
+  hosts: SshHost[];
+}
+
 export const listShells = () => invoke<ShellProfile[]>('list_shells');
+
+/** Checks the machine again on every call. Reads host names only, never keys. */
+export const sshStatus = () => invoke<SshStatus>('ssh_status');
 
 /** Checks the machine again on every call. */
 export const listTools = () => invoke<ToolStatus[]>('list_tools');

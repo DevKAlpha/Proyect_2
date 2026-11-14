@@ -12,6 +12,7 @@ import {
   type ToolStatus,
 } from './ipc';
 import { useHistory } from './stores/history';
+import { sshCommand, useRemote } from './stores/remote';
 import { buildNewTabMenu, type MenuItem } from './stores/menu';
 import { pickDefaultShell, useSettings } from './stores/settings';
 import { persistWorkspace, tabsOf, useTabs, type TabOptions } from './stores/tabs';
@@ -55,6 +56,22 @@ async function addProject() {
 
 const pickFromMenu = (item: MenuItem) => openTab(item.shell, item.options);
 
+/**
+ * Remote control: a terminal on another machine. It is a tab of the default
+ * shell that runs `ssh`, like an agent tab: the user sees the command, and
+ * when the connection ends the local shell is still there.
+ */
+function connectTo(target: string) {
+  const command = sshCommand(target);
+  if (command) openTab(undefined, { title: target.trim(), initialCommand: command });
+}
+
+/** What this machine has can change while the window is in the background. */
+const refreshMachine = () => {
+  refreshTools();
+  void useRemote.getState().refresh();
+};
+
 const refreshTools = () => void useTools.getState().refresh();
 
 // React runs effects twice in development; the app must still start once.
@@ -73,7 +90,7 @@ async function start() {
   persistWorkspace((workspace) => void saveWorkspace(workspace));
   void useHistory.getState().load();
   openTab();
-  refreshTools();
+  refreshMachine();
 }
 
 /**
@@ -137,10 +154,10 @@ export function App() {
     // Installers take the focus (administrator prompt, setup window). When it
     // comes back, the tool may be there. The same goes for the test browser:
     // the user may have closed its window.
-    window.addEventListener('focus', refreshTools);
+    window.addEventListener('focus', refreshMachine);
     return () => {
       window.removeEventListener('keydown', handleShortcut, true);
-      window.removeEventListener('focus', refreshTools);
+      window.removeEventListener('focus', refreshMachine);
     };
   }, []);
 
@@ -228,7 +245,12 @@ export function App() {
           {tabs
             .filter((tab) => tab.started)
             .map((tab) => (
-              <TerminalPane key={tab.id} tab={tab} active={tab.id === activeId} />
+              <TerminalPane
+                key={tab.id}
+                tab={tab}
+                active={tab.id === activeId}
+                onConnect={connectTo}
+              />
             ))}
 
           {config && visibleTabs.length === 0 && (

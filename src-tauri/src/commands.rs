@@ -13,7 +13,7 @@ use term_config::{Config, Workspace};
 use term_context::GitBranch;
 use term_pty::{PtySession, SpawnOptions};
 use term_shell::{CwdScanner, Os, ShellProfile};
-use term_tools::{AgentStatus, ToolStatus};
+use term_tools::{AgentStatus, SshStatus, ToolStatus};
 
 use crate::state::{AppState, Whereabouts};
 
@@ -40,6 +40,15 @@ pub fn list_tools() -> Vec<ToolStatus> {
 #[tauri::command]
 pub fn list_agents() -> Vec<AgentStatus> {
     term_tools::detect_agents()
+}
+
+/// Whether `ssh` is installed and the machines named in the user's SSH
+/// configuration, for the "remote control" menu. Only names are read, never
+/// keys. Checked on every call: the user may have just edited the file.
+#[tauri::command]
+pub fn ssh_status() -> SshStatus {
+    let config = dirs::home_dir().map(|home| home.join(".ssh").join("config"));
+    term_tools::ssh_status(config.as_deref())
 }
 
 /// The programs a tab of the shell `shell_id` can run, as the user types

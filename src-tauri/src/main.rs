@@ -27,6 +27,7 @@ fn main() {
             commands::list_tools,
             commands::list_agents,
             commands::list_programs,
+            commands::ssh_status,
             commands::get_config,
             commands::open_config_file,
             commands::read_background,

@@ -15,6 +15,7 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 - Una línea de ayuda explica el comando que escribes, avisa si es de otro sistema o tiene una errata y propone el cambio.
 - Comandos de Linux (`grep`, `ls`, `cat`, `touch`...) también en PowerShell y cmd.
 - Una barra bajo cada terminal muestra la carpeta en la que estás y su rama de Git, y abre la carpeta en el explorador de archivos.
+- Control remoto: abre una terminal en otro equipo por SSH, con tus equipos guardados en un menú.
 - Borra parte de un comando seleccionándola con el ratón o con el teclado.
 - Personalizable: temas, colores, fuente, cursor e imagen de fondo.
 - Fuente JetBrains Mono incluida, texto nítido en pantallas de alta densidad y zoom con el teclado.
@@ -110,11 +111,12 @@ El filtro de credenciales reduce el riesgo, no lo elimina: un secreto escrito de
 
 ## Dónde estás
 
-Bajo cada terminal hay una barra con tres cosas:
+Bajo cada terminal hay una barra. A la izquierda dice dónde estás; a la derecha, lo que puedes hacer desde ahí:
 
 - **La carpeta** en la que está el shell. Tu carpeta personal se escribe `~`. Si la ruta no cabe, se corta por el principio; al pasar el ratón se ve entera.
 - **La rama de Git**, cuando la carpeta está dentro de un repositorio. Si no hay rama (estás en un commit suelto), muestra el principio del commit.
 - **Explorador de archivos**: abre esa carpeta en el explorador del sistema.
+- **Control remoto**: abre una terminal en otro equipo (ver más abajo).
 
 La barra sigue al shell: se actualiza después de cada comando (`cd`, `git switch`...) y al volver a la ventana. Funciona en PowerShell, cmd, Git Bash, bash, zsh y fish. Dentro de un programa (un editor, un agente de IA) muestra la última carpeta que anunció el shell.
 
@@ -122,6 +124,21 @@ La barra sigue al shell: se actualiza después de cada comando (`cd`, `git switc
 - En WSL la barra muestra la carpeta de Linux, sin rama, y el botón del explorador queda desactivado: esa carpeta está dentro de Linux.
 - En PowerShell, si entras en el registro (`cd HKLM:`), la barra sigue mostrando la última carpeta de archivos.
 - Las carpetas compartidas por otro equipo (`\\servidor\carpeta`) no se muestran. Mirarlas enviaría tus credenciales a ese equipo sin que lo hayas pedido.
+
+## Control remoto
+
+«Control remoto», en la barra bajo la terminal, abre una terminal en otro equipo por SSH: un servidor, otra máquina de tu red, una Raspberry Pi.
+
+- El menú lista los equipos que ya tienes en tu configuración de SSH (`~/.ssh/config`), por su nombre.
+- «Otro equipo…» pide el equipo a mano, como `usuario@equipo` o solo `equipo`. `Enter` conecta, `Esc` cancela.
+- La conexión se abre en una pestaña nueva de tu shell, que ejecuta `ssh` a la vista. Al cerrar la conexión, el shell sigue ahí.
+
+La conexión siempre sale de tu equipo hacia el otro, con el programa `ssh` del sistema. La terminal no acepta conexiones de fuera y no abre ningún puerto: nadie puede controlar tu equipo a través de ella.
+
+- De tu configuración de SSH solo se leen los nombres de los equipos, nunca las claves. Las líneas `Include` no se siguen.
+- El nombre del equipo solo admite letras, números, puntos, guiones y guiones bajos. Así un texto pegado por error no puede colar otro comando ni una opción de `ssh`.
+- Para un puerto distinto u otras opciones, guarda el equipo en `~/.ssh/config` o escribe el comando `ssh` tú mismo.
+- En la pestaña remota, la barra sigue mostrando la carpeta de tu equipo: el shell del otro lado no anuncia la suya.
 
 ## Comandos de Linux
 
@@ -237,7 +254,7 @@ crates/shell    Detección de los shells instalados y lo que cada uno anuncia (p
 crates/context  Lo que rodea a una terminal: la rama de Git de su carpeta
 crates/config   Configuración, temas y proyectos guardados
 crates/history  Comandos recordados, con filtro de credenciales
-crates/tools    Herramientas y agentes de IA: cuáles faltan y cómo instalarlos
+crates/tools    Herramientas, agentes de IA y equipos de SSH: qué hay y cómo instalar lo que falta
 crates/browser  Navegador de pruebas aislado para los agentes
 src-tauri/      App de escritorio: ventana, comandos IPC y eventos
 ui/             Interfaz: React, TypeScript, Tailwind y xterm.js

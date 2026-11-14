@@ -19,6 +19,7 @@ import {
 import type { Hint } from '../stores/guide';
 import { useHistory } from '../stores/history';
 import { usePrograms } from '../stores/programs';
+import { useRemote } from '../stores/remote';
 import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
 import { useTabs, type Tab } from '../stores/tabs';
 import { terminalTheme } from '../stores/theme';
@@ -103,6 +104,8 @@ function terminalKeys(term: Terminal, assist: PromptAssist) {
 interface TerminalPaneProps {
   tab: Tab;
   active: boolean;
+  /** Opens a terminal on another machine over SSH: `machine` or `user@machine`. */
+  onConnect: (target: string) => void;
 }
 
 /**
@@ -111,7 +114,7 @@ interface TerminalPaneProps {
  * Inactive panes stay mounted but hidden, so their screen and history survive
  * a tab switch. The shell lives exactly as long as the pane.
  */
-export function TerminalPane({ tab, active }: TerminalPaneProps) {
+export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -128,6 +131,8 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
   const seeThroughRef = useRef(false);
   const config = useSettings((state) => state.config);
   const zoom = useSettings((state) => state.zoom);
+  const remoteAvailable = useRemote((state) => state.available);
+  const hosts = useRemote((state) => state.hosts);
 
   // Create the screen and its shell once per tab.
   useEffect(() => {
@@ -316,6 +321,10 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       <StatusBar
         place={place}
         notice={notice}
+        remoteAvailable={remoteAvailable}
+        hosts={hosts}
+        onConnect={onConnect}
+        onCancel={() => termRef.current?.focus()}
         onOpenFolder={() => {
           const id = sessionRef.current;
           if (id === null) return;
