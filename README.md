@@ -14,6 +14,7 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 - Recuerda tus comandos y los sugiere mientras escribes. Sin historial, sugiere comandos habituales.
 - Una línea de ayuda explica el comando que escribes, avisa si es de otro sistema o tiene una errata y propone el cambio.
 - Comandos de Linux (`grep`, `ls`, `cat`, `touch`...) también en PowerShell y cmd.
+- Una barra bajo cada terminal muestra la carpeta en la que estás y su rama de Git, y abre la carpeta en el explorador de archivos.
 - Borra parte de un comando seleccionándola con el ratón o con el teclado.
 - Personalizable: temas, colores, fuente, cursor e imagen de fondo.
 - Fuente JetBrains Mono incluida, texto nítido en pantallas de alta densidad y zoom con el teclado.
@@ -106,6 +107,21 @@ select_with = "shift"
 - `history_size = 0` en `[input]` desactiva el recuerdo; `suggestions = false` oculta las sugerencias; `hints = false` quita la línea de ayuda.
 
 El filtro de credenciales reduce el riesgo, no lo elimina: un secreto escrito de otra forma sí se guardaría.
+
+## Dónde estás
+
+Bajo cada terminal hay una barra con tres cosas:
+
+- **La carpeta** en la que está el shell. Tu carpeta personal se escribe `~`. Si la ruta no cabe, se corta por el principio; al pasar el ratón se ve entera.
+- **La rama de Git**, cuando la carpeta está dentro de un repositorio. Si no hay rama (estás en un commit suelto), muestra el principio del commit.
+- **Explorador de archivos**: abre esa carpeta en el explorador del sistema.
+
+La barra sigue al shell: se actualiza después de cada comando (`cd`, `git switch`...) y al volver a la ventana. Funciona en PowerShell, cmd, Git Bash, bash, zsh y fish. Dentro de un programa (un editor, un agente de IA) muestra la última carpeta que anunció el shell.
+
+- La rama se lee de los archivos del repositorio. No hace falta tener Git instalado y no se ejecuta nada.
+- En WSL la barra muestra la carpeta de Linux, sin rama, y el botón del explorador queda desactivado: esa carpeta está dentro de Linux.
+- En PowerShell, si entras en el registro (`cd HKLM:`), la barra sigue mostrando la última carpeta de archivos.
+- Las carpetas compartidas por otro equipo (`\\servidor\carpeta`) no se muestran. Mirarlas enviaría tus credenciales a ese equipo sin que lo hayas pedido.
 
 ## Comandos de Linux
 
@@ -217,7 +233,8 @@ cargo test --workspace
 
 ```
 crates/pty      Sesiones de pseudo-terminal (ConPTY en Windows, forkpty en Unix)
-crates/shell    Detección de los shells instalados
+crates/shell    Detección de los shells instalados y lo que cada uno anuncia (prompt, carpeta)
+crates/context  Lo que rodea a una terminal: la rama de Git de su carpeta
 crates/config   Configuración, temas y proyectos guardados
 crates/history  Comandos recordados, con filtro de credenciales
 crates/tools    Herramientas y agentes de IA: cuáles faltan y cómo instalarlos

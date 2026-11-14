@@ -10,11 +10,12 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use term_browser::Connector;
 use term_config::{Config, Workspace};
+use term_context::GitBranch;
 use term_pty::{PtySession, SpawnOptions};
-use term_shell::ShellProfile;
+use term_shell::{CwdScanner, Os, ShellProfile};
 use term_tools::{AgentStatus, ToolStatus};
 
-use crate::state::AppState;
+use crate::state::{AppState, Whereabouts};
 
 /// Image types the background accepts. The file is handed to the web view,
 /// so only formats it draws as plain pictures are allowed.
@@ -258,6 +259,23 @@ pub fn pty_spawn(
         env.push(("PATH".to_owned(), path.to_string_lossy().into_owned()));
     }
 
+    let id = state.next_session_id();
+    let inside_wsl = shell.id == "wsl";
+    // Until the shell says otherwise, it is where it was started. A shell
+    // inside WSL starts in a folder of Linux that only it can name.
+    if let (Some(folder), false) = (&cwd, inside_wsl) {
+        state.places.set(id, Whereabouts::Local(folder.clone()));
+    }
+    let places = state.places.clone();
+    let shell_id = shell.id.clone();
+    // Git Bash names its own folders from the folder Git is installed in.
+    let git_root = state
+        .unix_tools
+        .as_deref()
+        .and_then(|tools| tools.parent()?.parent())
+        .map(Path::to_path_buf);
+    let mut scanner = CwdScanner::default();
+
     let options = SpawnOptions {
         program: shell.program.clone(),
         args,
@@ -266,21 +284,102 @@ pub fn pty_spawn(
         cols,
         rows,
     };
-    let session = PtySession::spawn(
+    let spawned = PtySession::spawn(
         options,
         move |bytes| {
+            // With each prompt the shell says which folder it is in. That
+            // is program output: only a folder that exists on this machine
+            // is believed.
+            if let Some(reported) = scanner.feed(bytes) {
+                let place = if inside_wsl {
+                    Some(Whereabouts::Elsewhere(reported))
+                } else {
+                    term_shell::local_folder(
+                        &shell_id,
+                        &reported,
+                        Os::current(),
+                        git_root.as_deref(),
+                    )
+                    .filter(|folder| folder.is_dir())
+                    .map(Whereabouts::Local)
+                };
+                if let Some(place) = place {
+                    places.set(id, place);
+                }
+            }
             // Fails only when the tab is already gone.
             let _ = on_data.send(InvokeResponseBody::Raw(bytes.to_vec()));
         },
         move |code| {
             let _ = on_exit.send(code);
         },
-    )
-    .map_err(|error| error.to_string())?;
+    );
+    let session = match spawned {
+        Ok(session) => session,
+        Err(error) => {
+            state.places.forget(id);
+            return Err(error.to_string());
+        }
+    };
 
-    let id = state.next_session_id();
     state.sessions().insert(id, session);
     Ok(id)
+}
+
+/// Where a terminal is, for the bar under it.
+#[derive(Serialize)]
+pub struct Place {
+    /// The folder, written in full.
+    path: String,
+    /// The same folder made short for display: the home folder is `~`.
+    label: String,
+    /// Branch of the Git repository the folder belongs to, if any.
+    branch: Option<GitBranch>,
+    /// Whether `open_folder` can show this folder in the file manager.
+    can_open: bool,
+}
+
+/// The folder the shell of session `id` is in and its Git branch. `None`
+/// when nothing is known. Asked after every command, so it reads a few small
+/// files and starts no process. Off the main thread: a folder can be on a
+/// slow disk.
+#[tauri::command(async)]
+pub fn session_place(state: State<'_, AppState>, id: u32) -> Option<Place> {
+    Some(match state.places.get(id)? {
+        Whereabouts::Local(folder) => Place {
+            path: folder.to_string_lossy().into_owned(),
+            label: term_context::short_label(&folder, dirs::home_dir().as_deref()),
+            branch: term_context::git_branch(&folder),
+            can_open: true,
+        },
+        Whereabouts::Elsewhere(path) => Place {
+            label: path.clone(),
+            path,
+            branch: None,
+            can_open: false,
+        },
+    })
+}
+
+/// Shows the folder of session `id` in the file manager of the system.
+///
+/// The UI sends the id of a session, never a path: it can only open the
+/// folder a terminal is in.
+#[tauri::command]
+pub fn open_folder(app: AppHandle, state: State<'_, AppState>, id: u32) -> Result<(), String> {
+    let Some(Whereabouts::Local(folder)) = state.places.get(id) else {
+        return Err("this terminal is not in a folder of this machine".to_owned());
+    };
+    // Opening a path that is a program would run it. Only folders are opened.
+    if !folder.is_dir() {
+        return Err(format!(
+            "the folder no longer exists: {}",
+            folder.to_string_lossy()
+        ));
+    }
+    app.opener()
+        .open_path(folder.to_string_lossy(), None::<&str>)
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -310,4 +409,5 @@ pub fn pty_resize(state: State<'_, AppState>, id: u32, cols: u16, rows: u16) -> 
 pub fn pty_kill(state: State<'_, AppState>, id: u32) {
     // Dropping the session kills the process and closes the pseudo-terminal.
     state.sessions().remove(&id);
+    state.places.forget(id);
 }

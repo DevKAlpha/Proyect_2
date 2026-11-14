@@ -27,6 +27,8 @@ export interface PromptAssistOptions {
   guide: () => GuideContext;
   /** Called when there is something new to say about the line, or nothing any more. */
   onHint: (hint: Hint | null) => void;
+  /** Called each time the shell shows a prompt: the last command has finished. */
+  onPrompt: () => void;
 }
 
 export interface PromptAssist {
@@ -234,6 +236,7 @@ export function attachPromptAssist(term: Terminal, options: PromptAssistOptions)
         leavePrompt();
         start = { marker: term.registerMarker(0), x: term.buffer.active.cursorX };
         scheduleRefresh();
+        options.onPrompt();
       }
       return true;
     }),

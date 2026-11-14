@@ -7,7 +7,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use term_pty::{PtySession, SpawnOptions};
-use term_shell::{detect_shells, install_support, prompt_marks};
+use term_shell::{detect_shells, install_support, prompt_marks, CwdScanner};
 
 /// The mark that ends a prompt, without its terminator (shells differ on it).
 const PROMPT_END: &str = "\x1b]133;B";
@@ -65,6 +65,14 @@ fn first_prompt(id: &str) -> Option<String> {
     Some(output)
 }
 
+/// The folder the shell said it was in before its first prompt. The status
+/// bar of the app shows it, so it must arrive with every shell.
+fn reported_folder(output: &str) -> String {
+    CwdScanner::default()
+        .feed(output.as_bytes())
+        .unwrap_or_else(|| panic!("the shell did not say where it is: {output:?}"))
+}
+
 /// The mark must come right after the prompt text: it is where the user's
 /// command starts on screen. Only the shells of Windows have a prompt whose
 /// last character is known beforehand.
@@ -83,6 +91,7 @@ fn windows_powershell_marks_the_end_of_its_prompt() {
     let output = first_prompt("powershell").expect("Windows always has Windows PowerShell");
 
     assert_mark_follows(&output, ">");
+    assert!(std::path::Path::new(&reported_folder(&output)).is_dir());
 }
 
 #[cfg(windows)]
@@ -91,6 +100,7 @@ fn cmd_marks_the_end_of_its_prompt() {
     let output = first_prompt("cmd").expect("Windows always has cmd");
 
     assert_mark_follows(&output, ">");
+    assert!(std::path::Path::new(&reported_folder(&output)).is_dir());
 }
 
 #[test]
@@ -99,6 +109,9 @@ fn bash_marks_the_end_of_its_prompt_when_installed() {
     let id = if cfg!(windows) { "git-bash" } else { "bash" };
     if let Some(output) = first_prompt(id) {
         assert!(output.contains(PROMPT_END));
+        // Git Bash writes drives its own way (`/c/Users`), so only the
+        // shape is checked here.
+        assert!(reported_folder(&output).starts_with('/'));
     }
 }
 
@@ -108,6 +121,10 @@ fn zsh_and_fish_mark_the_end_of_their_prompt_when_installed() {
     for id in ["zsh", "fish"] {
         if let Some(output) = first_prompt(id) {
             assert!(output.contains(PROMPT_END), "{id}");
+            assert!(
+                std::path::Path::new(&reported_folder(&output)).is_dir(),
+                "{id}"
+            );
         }
     }
 }

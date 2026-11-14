@@ -6,6 +6,7 @@
 //! mark right after each prompt (`OSC 133 ; B`, the mark other terminals
 //! use too). Everything from that mark to the next Enter is the user's
 //! command line, which is what suggestions and editing by selection need.
+//! With each prompt the shell also says which folder it is in (see `cwd`).
 //!
 //! Nothing is written to the user's shell configuration: the marks come from
 //! arguments and environment variables of the one process being started.
@@ -33,21 +34,29 @@ const MARK: &str = "133;B";
 /// called first, as the very first statement, so that prompts which show
 /// whether the last command failed still see that status. No double quotes:
 /// the script travels as one command-line argument.
+///
+/// The folder comes first (`OSC 9 ; 9`). It is asked of the file system on
+/// purpose: PowerShell can also "be" in the registry or in a certificate
+/// store, which are not folders.
 const POWERSHELL: &str = "$Global:__termPrompt = $function:prompt; \
 function Global:prompt { $p = & $Global:__termPrompt; \
--join ([char]27, ']133;A', [char]7, $p, [char]27, ']133;B', [char]7) }";
+-join ([char]27, ']9;9;', (Get-Location -PSProvider FileSystem).ProviderPath, [char]7, \
+[char]27, ']133;A', [char]7, $p, [char]27, ']133;B', [char]7) }";
 
-/// Run by bash before each prompt: makes sure the prompt ends with the mark,
-/// whatever the user's files set it to. `\[ \]` tells bash the mark takes no
-/// room on screen.
-const BASH: &str = r#"case "$PS1" in *'133;B'*) ;; *) PS1="$PS1"'\[\e]133;B\a\]' ;; esac"#;
+/// Run by bash before each prompt: says which folder the shell is in
+/// (`OSC 7`) and makes sure the prompt ends with the mark, whatever the
+/// user's files set it to. `\[ \]` tells bash the mark takes no room on
+/// screen.
+const BASH: &str = r#"printf '\e]7;file://%s%s\a' "$HOSTNAME" "$PWD"; case "$PS1" in *'133;B'*) ;; *) PS1="$PS1"'\[\e]133;B\a\]' ;; esac"#;
 
 /// Run by fish after the user's configuration. Wraps the prompt function,
 /// calling the original first so it still sees the status of the last
-/// command. fish draws its own suggestion after the cursor; drawing it dim
-/// lets the terminal tell it from what the user typed.
+/// command, and adds the folder and the mark after it. fish draws its own
+/// suggestion after the cursor; drawing it dim lets the terminal tell it
+/// from what the user typed.
 const FISH: &str = "functions -c fish_prompt __term_prompt; \
-function fish_prompt; __term_prompt; printf '\\e]133;B\\a'; end; \
+function fish_prompt; __term_prompt; \
+printf '\\e]7;file://%s%s\\a\\e]133;B\\a' $hostname $PWD; end; \
 set -g fish_color_autosuggestion $fish_color_autosuggestion --dim";
 
 /// Folder, inside the app's support folder, that zsh reads its first
@@ -56,8 +65,9 @@ const ZSH_FOLDER: &str = "zsh";
 
 /// The first file zsh reads. It hands zsh its real folder back at once, so
 /// every other start-up file is the user's own, read from where they keep
-/// it. Then it asks zsh to end each prompt with the mark. `%{ %}` tells zsh
-/// the mark takes no room on screen.
+/// it. Then it asks zsh to say which folder it is in before each prompt and
+/// to end the prompt with the mark. `%{ %}` tells zsh the mark takes no
+/// room on screen.
 ///
 /// The hook moves itself to the end of the list: a theme that rebuilds the
 /// prompt before each command would otherwise wipe the mark.
@@ -72,6 +82,7 @@ unset TERM_APP_ZDOTDIR
 
 if [[ -o interactive ]]; then
   __term_mark() {
+    printf '\e]7;file://%s%s\a' "$HOST" "$PWD"
     [[ "$PS1" == *'133;B'* ]] || PS1="$PS1"$'%{\e]133;B\a%}'
     [[ "${precmd_functions[-1]}" == __term_mark ]] ||
       precmd_functions=(${precmd_functions:#__term_mark} __term_mark)
@@ -152,11 +163,12 @@ pub fn prompt_marks(
             env: Vec::new(),
         },
         "cmd" => {
-            // In a cmd prompt, `$E` is the escape character.
+            // In a cmd prompt, `$E` is the escape character and `$P` the
+            // current folder, which goes first.
             let prompt = match env("PROMPT") {
                 Some(existing) if existing.contains(MARK) => existing,
                 existing => format!(
-                    "$E]133;A$E\\{}$E]133;B$E\\",
+                    "$E]9;9;$P$E\\$E]133;A$E\\{}$E]133;B$E\\",
                     existing
                         .filter(|prompt| !prompt.is_empty())
                         .unwrap_or_else(|| CMD_DEFAULT_PROMPT.to_owned())
@@ -312,7 +324,7 @@ mod tests {
             marks.env,
             [(
                 "PROMPT".to_owned(),
-                "$E]133;A$E\\$P$G$E]133;B$E\\".to_owned()
+                "$E]9;9;$P$E\\$E]133;A$E\\$P$G$E]133;B$E\\".to_owned()
             )]
         );
     }
@@ -325,7 +337,10 @@ mod tests {
             None,
         );
 
-        assert_eq!(marks.env[0].1, "$E]133;A$E\\$T $P$G$E]133;B$E\\");
+        assert_eq!(
+            marks.env[0].1,
+            "$E]9;9;$P$E\\$E]133;A$E\\$T $P$G$E]133;B$E\\"
+        );
     }
 
     #[test]

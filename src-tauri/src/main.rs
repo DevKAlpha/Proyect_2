@@ -43,6 +43,8 @@ fn main() {
             commands::pty_write,
             commands::pty_resize,
             commands::pty_kill,
+            commands::session_place,
+            commands::open_folder,
         ])
         .build(tauri::generate_context!())
         .expect("the application failed to start");

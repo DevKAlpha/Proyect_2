@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Child;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use tauri::{AppHandle, Emitter, Manager};
 use term_browser::Browser;
@@ -18,8 +18,38 @@ const CONFIG_CHANGED: &str = "config-changed";
 /// Event sent to the UI with a message when the edited file has an error.
 const CONFIG_ERROR: &str = "config-error";
 
+/// Where the shell of a session is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Whereabouts {
+    /// A folder of this machine.
+    Local(PathBuf),
+    /// A folder this side cannot open or look into: the shell runs inside
+    /// WSL. Kept as the shell wrote it, only to show it.
+    Elsewhere(String),
+}
+
+/// Where each session is, by session id. Shared with the threads that read
+/// shell output: that is where a shell says it changed folder.
+#[derive(Clone, Default)]
+pub struct Places(Arc<Mutex<HashMap<u32, Whereabouts>>>);
+
+impl Places {
+    pub fn set(&self, id: u32, place: Whereabouts) {
+        lock(&self.0).insert(id, place);
+    }
+
+    pub fn get(&self, id: u32) -> Option<Whereabouts> {
+        lock(&self.0).get(&id).cloned()
+    }
+
+    pub fn forget(&self, id: u32) {
+        lock(&self.0).remove(&id);
+    }
+}
+
 pub struct AppState {
     sessions: Mutex<HashMap<u32, PtySession>>,
+    pub places: Places,
     next_session_id: AtomicU32,
     config: Mutex<Config>,
     config_path: Option<PathBuf>,
@@ -97,6 +127,7 @@ impl AppState {
 
         Self {
             sessions: Mutex::default(),
+            places: Places::default(),
             next_session_id: AtomicU32::new(1),
             config: Mutex::new(config),
             config_path,

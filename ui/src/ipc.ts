@@ -196,5 +196,34 @@ export const writePty = (id: number, data: string) => invoke<void>('pty_write', 
 export const resizePty = (id: number, cols: number, rows: number) =>
   invoke<void>('pty_resize', { id, cols, rows });
 
+/** Where a terminal is: the folder of its shell and the Git branch there. */
+export interface Place {
+  /** The folder, written in full. */
+  path: string;
+  /** The same folder made short for display: the home folder is `~`. */
+  label: string;
+  /** `null` when the folder is not inside a Git repository. */
+  branch: {
+    /** Branch name, or the start of the commit when `detached`. */
+    name: string;
+    /** No branch is checked out: the folder sits on a commit. */
+    detached: boolean;
+  } | null;
+  /** Whether `openFolder` can show the folder (not one inside WSL). */
+  can_open: boolean;
+}
+
+/**
+ * Where the shell of a session is right now. Resolves with `null` when
+ * nothing is known. Cheap: meant to be asked after every command.
+ */
+export const sessionPlace = (id: number) => invoke<Place | null>('session_place', { id });
+
+/**
+ * Shows the folder of a session in the file manager of the system. The
+ * session is named by id: this side never sends a path to open.
+ */
+export const openFolder = (id: number) => invoke<void>('open_folder', { id });
+
 /** Ends a session and frees it. Safe to call after the shell exited. */
 export const killPty = (id: number) => invoke<void>('pty_kill', { id });

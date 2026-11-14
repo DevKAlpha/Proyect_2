@@ -4207,6 +4207,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "term-context"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "tempfile",
+]
+
+[[package]]
 name = "term-history"
 version = "0.1.0"
 dependencies = [
@@ -4256,6 +4264,7 @@ dependencies = [
  "tauri-plugin-opener",
  "term-browser",
  "term-config",
+ "term-context",
  "term-history",
  "term-pty",
  "term-shell",

@@ -5,7 +5,17 @@ import { Unicode11Addon } from '@xterm/addon-unicode11';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { Terminal, type ITerminalOptions } from '@xterm/xterm';
-import { killPty, openExternal, resizePty, spawnPty, writePty, type Config } from '../ipc';
+import {
+  killPty,
+  openExternal,
+  openFolder,
+  resizePty,
+  sessionPlace,
+  spawnPty,
+  writePty,
+  type Config,
+  type Place,
+} from '../ipc';
 import type { Hint } from '../stores/guide';
 import { useHistory } from '../stores/history';
 import { usePrograms } from '../stores/programs';
@@ -14,6 +24,7 @@ import { useTabs, type Tab } from '../stores/tabs';
 import { terminalTheme } from '../stores/theme';
 import { HintBar } from './HintBar';
 import { attachPromptAssist, type PromptAssist } from './promptAssist';
+import { StatusBar } from './StatusBar';
 
 /**
  * Opens a link from the terminal. Ctrl (or Cmd) must be held, as in other
@@ -107,6 +118,11 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
   const assistRef = useRef<PromptAssist | null>(null);
   // What the line under the terminal says about the command being typed.
   const [hint, setHint] = useState<Hint | null>(null);
+  // The session of this pane, for the buttons of the bar under it.
+  const sessionRef = useRef<number | null>(null);
+  // The folder the shell is in and its Git branch.
+  const [place, setPlace] = useState<Place | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   // Whether this screen can show a picture behind it. xterm.js fixes that
   // when a screen opens, so it is remembered for later theme changes.
   const seeThroughRef = useRef(false);
@@ -164,6 +180,21 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
       else void writePty(sessionId, data);
     };
 
+    // Asks where the shell is now. A command may have changed the folder or
+    // the branch, so this runs at every prompt.
+    const refreshPlace = () => {
+      if (sessionId === null) return;
+      sessionPlace(sessionId)
+        .then((next) => {
+          if (disposed) return;
+          setPlace(next);
+          setNotice(null);
+        })
+        // The bar keeps what it showed: a place that cannot be read is not
+        // worth interrupting the user for.
+        .catch(() => {});
+    };
+
     const assist = attachPromptAssist(term, {
       send,
       settings: () => useSettings.getState().config?.input ?? null,
@@ -174,7 +205,11 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
         programs: usePrograms.getState().byShell[tab.shellId] ?? null,
       }),
       onHint: setHint,
+      onPrompt: refreshPlace,
     });
+    // Another program can change the branch while this window is in the
+    // background (an editor, a Git client).
+    window.addEventListener('focus', refreshPlace);
     assistRef.current = assist;
     term.attachCustomKeyEventHandler(terminalKeys(term, assist));
     // A program installed a moment ago starts to work in this new terminal,
@@ -197,6 +232,9 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
         // The tab was closed while the shell was starting.
         if (disposed) return void killPty(id);
         sessionId = id;
+        sessionRef.current = id;
+        // The folder it starts in, before the shell says anything.
+        refreshPlace();
         // The answer to the shell's start-up question goes first, then the
         // command. The shell reads the command when it is ready for input.
         const command = tab.initialCommand ? `${tab.initialCommand}\r` : '';
@@ -226,8 +264,10 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
     return () => {
       disposed = true;
       observer.disconnect();
+      window.removeEventListener('focus', refreshPlace);
       assist.dispose();
       assistRef.current = null;
+      sessionRef.current = null;
       input.dispose();
       resize.dispose();
       if (sessionId !== null) void killPty(sessionId);
@@ -273,6 +313,17 @@ export function TerminalPane({ tab, active }: TerminalPaneProps) {
           onFix={() => assistRef.current?.applyFix()}
         />
       )}
+      <StatusBar
+        place={place}
+        notice={notice}
+        onOpenFolder={() => {
+          const id = sessionRef.current;
+          if (id === null) return;
+          // Rust answers in English; the reason shown is the one that
+          // happens in practice.
+          openFolder(id).catch(() => setNotice('No se pudo abrir la carpeta: ya no existe.'));
+        }}
+      />
     </div>
   );
 }
