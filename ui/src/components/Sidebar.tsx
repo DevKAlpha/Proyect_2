@@ -26,6 +26,8 @@ interface SidebarProps {
   onClearHistory: () => void;
   onToggleBrowser: () => void;
   onOpenConfig: () => void;
+  /** Width in pixels, chosen by the user with the divider next to it. */
+  width: number;
   /** Ready-made looks: colours, font and cursor. */
   templates: Template[];
   /** Name of the template applied a moment ago, if any. */
@@ -191,7 +193,8 @@ export function Sidebar(props: SidebarProps) {
   return (
     <nav
       aria-label="Proyectos"
-      className="flex w-56 shrink-0 flex-col border-r border-fg/10 text-sm"
+      style={{ width: props.width }}
+      className="flex shrink-0 flex-col text-sm"
     >
       <div className="flex h-9 shrink-0 items-center justify-between border-b border-fg/10 pr-1 pl-3">
         <span className="text-xs tracking-wide text-fg/60 uppercase">Proyectos</span>

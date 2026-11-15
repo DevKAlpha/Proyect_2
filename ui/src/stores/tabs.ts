@@ -28,6 +28,12 @@ export interface Tab {
   transient?: boolean;
 }
 
+/** Two terminals side by side, by tab id. */
+export interface Split {
+  left: number;
+  right: number;
+}
+
 /** What a new tab can override. */
 export type TabOptions = Partial<Pick<Tab, 'title' | 'initialCommand' | 'transient'>>;
 
@@ -40,6 +46,12 @@ interface TabsState {
   activeId: number | null;
   /** The terminal each project showed last, by project key. */
   lastActive: Record<string, number>;
+  /**
+   * Two terminals of the active project shown side by side, or `null` for
+   * one terminal filling the window. `activeId` is always one of the two:
+   * the one that has the keyboard.
+   */
+  split: Split | null;
 
   /** Opens a terminal for `shell` in the active project and shows it. */
   open: (shell: ShellProfile, options?: TabOptions) => void;
@@ -55,6 +67,13 @@ interface TabsState {
   /** Creates a project for the folder `path` and shows it. */
   addProject: (name: string, path: string) => void;
   renameProject: (id: string, name: string) => void;
+  /**
+   * Shows the active terminal next to the following one of its project, or
+   * goes back to one terminal. Does nothing with a single terminal.
+   */
+  toggleSplit: () => void;
+  /** Shows two terminals of the active project side by side; `right` gets the keyboard. */
+  setSplit: (left: number, right: number) => void;
   /** Removes a project and closes its terminals. The folder is not touched. */
   removeProject: (id: string) => void;
   /** Loads the projects of the last run. Their terminals are not started. */
@@ -71,6 +90,16 @@ export function tabsOf(tabs: Tab[], projectId: string | null): Tab[] {
   return tabs.filter((tab) => tab.projectId === projectId);
 }
 
+/**
+ * The split after the terminal `next` takes the keyboard from `previous`.
+ * One of the two shown only gets the keyboard. Any other terminal takes the
+ * place of the one that had it: the other half stays where it is.
+ */
+function splitAfter(split: Split | null, previous: number | null, next: number): Split | null {
+  if (!split || next === split.left || next === split.right) return split;
+  return previous === split.right ? { ...split, right: next } : { ...split, left: next };
+}
+
 /** A copy of `tabs` where the terminal `id` is marked as started. */
 const start = (tabs: Tab[], id: number | null) =>
   tabs.map((tab) => (tab.id === id && !tab.started ? { ...tab, started: true } : tab));
@@ -81,6 +110,7 @@ export const useTabs = create<TabsState>((set) => ({
   activeProjectId: null,
   activeId: null,
   lastActive: {},
+  split: null,
 
   open: (shell, options) =>
     set((state) => {
@@ -96,6 +126,7 @@ export const useTabs = create<TabsState>((set) => ({
         tabs: [...state.tabs, tab],
         activeId: tab.id,
         lastActive: { ...state.lastActive, [keyOf(tab.projectId)]: tab.id },
+        split: splitAfter(state.split, state.activeId, tab.id),
       };
     }),
 
@@ -104,7 +135,18 @@ export const useTabs = create<TabsState>((set) => ({
       const closing = state.tabs.find((tab) => tab.id === id);
       if (!closing) return state;
       const tabs = state.tabs.filter((tab) => tab.id !== id);
-      if (state.activeId !== id) return { tabs };
+      // Closing one half of a split leaves the other one filling the window.
+      const { split } = state;
+      const other = split?.left === id ? split.right : split?.right === id ? split.left : null;
+      if (state.activeId !== id) return { tabs, split: other === null ? split : null };
+      if (other !== null) {
+        return {
+          tabs,
+          activeId: other,
+          split: null,
+          lastActive: { ...state.lastActive, [keyOf(closing.projectId)]: other },
+        };
+      }
 
       // Same position within the project, or the new last one.
       const index = tabsOf(state.tabs, closing.projectId).indexOf(closing);
@@ -129,6 +171,11 @@ export const useTabs = create<TabsState>((set) => ({
         activeProjectId: tab.projectId,
         activeId: id,
         lastActive: { ...state.lastActive, [keyOf(tab.projectId)]: id },
+        // A split belongs to the project on screen.
+        split:
+          tab.projectId === state.activeProjectId
+            ? splitAfter(state.split, state.activeId, id)
+            : null,
       };
     }),
 
@@ -142,6 +189,7 @@ export const useTabs = create<TabsState>((set) => ({
         tabs: start(state.tabs, next.id),
         activeId: next.id,
         lastActive: { ...state.lastActive, [keyOf(next.projectId)]: next.id },
+        split: splitAfter(state.split, state.activeId, next.id),
       };
     }),
 
@@ -158,6 +206,32 @@ export const useTabs = create<TabsState>((set) => ({
         tabs: start(state.tabs, target?.id ?? null),
         activeProjectId: id,
         activeId: target?.id ?? null,
+        split: id === state.activeProjectId ? state.split : null,
+      };
+    }),
+
+  toggleSplit: () =>
+    set((state) => {
+      if (state.split) return { split: null };
+      const visible = tabsOf(state.tabs, state.activeProjectId);
+      const index = visible.findIndex((tab) => tab.id === state.activeId);
+      if (index === -1 || visible.length < 2) return state;
+      const companion = visible[(index + 1) % visible.length]!;
+      return {
+        tabs: start(state.tabs, companion.id),
+        split: { left: visible[index]!.id, right: companion.id },
+      };
+    }),
+
+  setSplit: (left, right) =>
+    set((state) => {
+      const visible = tabsOf(state.tabs, state.activeProjectId).map((tab) => tab.id);
+      if (left === right || !visible.includes(left) || !visible.includes(right)) return state;
+      return {
+        tabs: start(start(state.tabs, left), right),
+        activeId: right,
+        lastActive: { ...state.lastActive, [keyOf(state.activeProjectId)]: right },
+        split: { left, right },
       };
     }),
 
@@ -168,6 +242,7 @@ export const useTabs = create<TabsState>((set) => ({
         projects: [...state.projects, project],
         activeProjectId: project.id,
         activeId: null,
+        split: null,
       };
     }),
 
@@ -191,6 +266,7 @@ export const useTabs = create<TabsState>((set) => ({
         tabs: start(tabs, target?.id ?? null),
         activeProjectId: null,
         activeId: target?.id ?? null,
+        split: null,
       };
     }),
 

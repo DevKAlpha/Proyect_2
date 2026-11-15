@@ -59,6 +59,7 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 - Detecta los shells instalados (PowerShell, Windows PowerShell, cmd, Git Bash, WSL, bash, zsh, fish).
 - Pestañas, una sesión por pestaña. Cada pestaña puede ser un shell o un agente de IA.
 - Proyectos: carpetas con sus terminales, ordenadas en una barra lateral. Se guardan entre sesiones.
+- Vista dividida: dos terminales lado a lado, con el reparto que tú elijas. Por ejemplo, un agente de IA a un lado y tu shell al otro.
 - Agentes de IA: detecta Claude Code, Codex, Gemini CLI, OpenCode y GitHub Copilot CLI. Los instalados se abren desde el menú de pestaña nueva; los que faltan se instalan desde ahí. Puedes añadir cualquier otro en la configuración.
 - Navegador de pruebas: un navegador aislado que los agentes controlan para probar aplicaciones web.
 - Recuerda tus comandos y los sugiere mientras escribes. Sin historial, sugiere comandos habituales.
@@ -84,6 +85,7 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 | `Ctrl+Shift+W`                 | Cerrar pestaña                                                   |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab`  | Pestaña siguiente / anterior, dentro del proyecto                |
 | `Ctrl+Shift+B`                 | Mostrar u ocultar la barra de proyectos                          |
+| `Ctrl+Shift+D`                 | Vista dividida: dos terminales lado a lado, o volver a una       |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Texto más grande / más pequeño / tamaño normal                   |
 | `Ctrl+Shift+C`                 | Copiar                                                           |
 | `Ctrl+C`                       | Copiar si hay texto seleccionado; si no, interrumpir el programa |
@@ -111,6 +113,25 @@ Un proyecto es una carpeta con sus terminales, como una carpeta de conversacione
 - Quitar un proyecto cierra sus terminales. La carpeta no se toca.
 
 Se guarda la lista (nombres, carpetas, qué ejecuta cada terminal). El texto y el historial de las terminales no se guardan.
+
+## Espacio de trabajo
+
+La ventana tiene tres partes, y tú decides cuánto ocupa cada una:
+
+- **La barra de proyectos**, a la izquierda. Arrastra su borde derecho para ensancharla o estrecharla. `Ctrl+Shift+B` la oculta para dejar todo el ancho a las terminales.
+- **La terminal.**
+- **Una segunda terminal**, a su lado, con la vista dividida.
+
+**Vista dividida.** El botón de la derecha de la barra de pestañas, o `Ctrl+Shift+D`, pone dos terminales del proyecto lado a lado. Si solo hay una, abre otra.
+
+- Arrastra la línea que las separa para repartir el espacio. Ninguna mitad baja del 20 %.
+- Un clic en una mitad le da el teclado. Una línea de color arriba marca cuál lo tiene.
+- Elegir otra pestaña la pone en la mitad que tiene el teclado; la otra mitad se queda como está.
+- Cerrar una de las dos deja a la otra con toda la ventana.
+- Cada mitad tiene su propia línea de ayuda y su barra de carpeta y rama. Si la mitad es estrecha, los botones de la barra quedan solo con su icono.
+- La vista dividida es de cada proyecto y no se guarda al cerrar. Los tamaños que elijas sí se recuerdan.
+
+Los divisores también se mueven con el teclado: lleva el foco a uno con `Tab` y usa las flechas izquierda y derecha.
 
 ## Mientras escribes un comando
 

@@ -22,6 +22,12 @@ interface StatusBarProps {
 const action =
   'flex shrink-0 items-center gap-1.5 rounded px-1.5 py-0.5 outline-none hover:bg-fg/10 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent disabled:pointer-events-none disabled:opacity-40';
 
+/**
+ * The words of a button. In a narrow bar (half of a split) they go away and
+ * the icon stays; the name is still in the title and for screen readers.
+ */
+const label = '@max-[34rem]:sr-only';
+
 /** Value of the menu entry that asks for a machine by hand. No host can be named like this. */
 const OTHER = ' other';
 
@@ -96,7 +102,7 @@ function RemoteControl({ available, hosts, onConnect, onCancel }: RemoteControlP
         className={action}
       >
         <RemoteIcon />
-        Control remoto
+        <span className={label}>Control remoto</span>
       </button>
     );
   }
@@ -152,7 +158,7 @@ function RemoteControl({ available, hosts, onConnect, onCancel }: RemoteControlP
       className={`relative focus-within:ring-2 focus-within:ring-accent ${action}`}
     >
       <RemoteIcon />
-      Control remoto
+      <span className={label}>Control remoto</span>
       <select
         aria-label="Control remoto: conectar a otro equipo por SSH"
         value=""
@@ -192,7 +198,7 @@ export function StatusBar(props: StatusBarProps) {
   return (
     <footer
       aria-label="Carpeta, rama y acciones de esta terminal"
-      className="mt-1 flex h-7 shrink-0 items-center gap-3 border-t border-fg/10 pt-1 text-xs text-fg/70"
+      className="@container mt-1 flex h-7 shrink-0 items-center gap-3 border-t border-fg/10 pt-1 text-xs text-fg/70"
     >
       {place && (
         <span className="flex min-w-0 items-center gap-1.5" title={`Carpeta: ${place.path}`}>
@@ -246,7 +252,7 @@ export function StatusBar(props: StatusBarProps) {
           className={action}
         >
           <OpenIcon />
-          Explorador de archivos
+          <span className={label}>Explorador de archivos</span>
         </button>
       </div>
     </footer>

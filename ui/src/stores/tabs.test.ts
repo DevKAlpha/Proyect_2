@@ -28,6 +28,7 @@ beforeEach(() =>
     activeProjectId: null,
     activeId: null,
     lastActive: {},
+    split: null,
   }),
 );
 
@@ -254,5 +255,144 @@ describe('saved layout', () => {
     stop();
     store().removeProject(store().projects[0]!.id);
     expect(save).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('split view', () => {
+  it('shows the active terminal next to the following one', () => {
+    const [a, b, c] = openTabs('pwsh', 'cmd', 'bash');
+    store().activate(a!);
+
+    store().toggleSplit();
+
+    expect(store().split).toEqual({ left: a, right: b });
+    expect(store().activeId).toBe(a);
+    void c;
+  });
+
+  it('wraps around from the last terminal, and goes back to one', () => {
+    const [a, , c] = openTabs('pwsh', 'cmd', 'bash');
+
+    store().toggleSplit();
+    expect(store().split).toEqual({ left: c, right: a });
+
+    store().toggleSplit();
+    expect(store().split).toBeNull();
+  });
+
+  it('needs two terminals', () => {
+    openTabs('pwsh');
+
+    store().toggleSplit();
+
+    expect(store().split).toBeNull();
+  });
+
+  it('gives the keyboard to the other half without moving anything', () => {
+    const [a, b] = openTabs('pwsh', 'cmd');
+    store().setSplit(a!, b!);
+
+    store().activate(a!);
+
+    expect(store().split).toEqual({ left: a, right: b });
+    expect(store().activeId).toBe(a);
+  });
+
+  it('puts another terminal in the half that has the keyboard', () => {
+    const [a, b, c] = openTabs('pwsh', 'cmd', 'bash');
+    store().setSplit(a!, b!);
+
+    store().activate(c!);
+    expect(store().split).toEqual({ left: a, right: c });
+
+    store().activate(a!);
+    store().activate(b!);
+    expect(store().split).toEqual({ left: b, right: c });
+  });
+
+  it('opens a new terminal in the half that has the keyboard', () => {
+    const [a, b] = openTabs('pwsh', 'cmd');
+    store().setSplit(a!, b!);
+
+    const [c] = openTabs('bash');
+
+    expect(store().split).toEqual({ left: a, right: c });
+    expect(store().activeId).toBe(c);
+  });
+
+  it('starts a restored terminal when it becomes one of the halves', () => {
+    const [a, b] = openTabs('pwsh', 'cmd');
+    useTabs.setState({
+      tabs: store().tabs.map((tab) => (tab.id === b ? { ...tab, started: false } : tab)),
+    });
+    store().activate(a!);
+
+    store().toggleSplit();
+
+    expect(store().tabs.find((tab) => tab.id === b)!.started).toBe(true);
+  });
+
+  it('closing one half leaves the other filling the window, with the keyboard', () => {
+    const [a, b] = openTabs('pwsh', 'cmd');
+    store().setSplit(a!, b!);
+
+    store().close(b!);
+
+    expect(store().split).toBeNull();
+    expect(store().activeId).toBe(a);
+  });
+
+  it('closing the half without the keyboard also ends the split', () => {
+    const [a, b] = openTabs('pwsh', 'cmd');
+    store().setSplit(a!, b!);
+
+    store().close(a!);
+
+    expect(store().split).toBeNull();
+    expect(store().activeId).toBe(b);
+  });
+
+  it('closing a terminal outside the split changes nothing', () => {
+    const [a, b, c] = openTabs('pwsh', 'cmd', 'bash');
+    store().setSplit(a!, b!);
+
+    store().close(c!);
+
+    expect(store().split).toEqual({ left: a, right: b });
+  });
+
+  it('belongs to the project on screen', () => {
+    const [a, b] = openTabs('pwsh', 'cmd');
+    store().setSplit(a!, b!);
+
+    addProject('web');
+    expect(store().split).toBeNull();
+
+    store().selectProject(null);
+    store().setSplit(a!, b!);
+    store().selectProject(null);
+    expect(store().split).toEqual({ left: a, right: b });
+  });
+
+  it('refuses terminals of another project or the same one twice', () => {
+    const [a] = openTabs('pwsh');
+    addProject('web');
+    const [b] = openTabs('cmd');
+
+    store().setSplit(a!, b!);
+    expect(store().split).toBeNull();
+
+    store().setSplit(b!, b!);
+    expect(store().split).toBeNull();
+  });
+
+  it('is not saved with the projects', () => {
+    addProject('web');
+    const [a, b] = openTabs('pwsh', 'cmd');
+    const before = JSON.stringify(toWorkspace(store()));
+
+    store().setSplit(a!, b!);
+
+    expect(JSON.stringify(toWorkspace(store()))).toBe(before);
   });
 });

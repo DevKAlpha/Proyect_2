@@ -111,6 +111,13 @@ function terminalKeys(term: Terminal, assist: PromptAssist, paste: () => void) {
 interface TerminalPaneProps {
   tab: Tab;
   active: boolean;
+  /**
+   * Where the pane is drawn inside the work area, as CSS lengths: the whole
+   * of it, or one half of a split. `null` keeps the pane mounted and hidden.
+   */
+  frame: { left: string; width: string } | null;
+  /** Marks the pane as the one with the keyboard. Only needed when two are on screen. */
+  marked: boolean;
   /** Opens a terminal on another machine over SSH: `machine` or `user@machine`. */
   onConnect: (target: string) => void;
 }
@@ -121,7 +128,7 @@ interface TerminalPaneProps {
  * Inactive panes stay mounted but hidden, so their screen and history survive
  * a tab switch. The shell lives exactly as long as the pane.
  */
-export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
+export function TerminalPane({ tab, active, frame, marked, onConnect }: TerminalPaneProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -365,8 +372,16 @@ export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
       role="tabpanel"
       id={`panel-${tab.id}`}
       aria-labelledby={`tab-${tab.id}`}
-      className={active ? 'absolute inset-0 flex flex-col' : 'hidden'}
-      style={{ padding: config?.padding ?? 8 }}
+      className={
+        frame
+          ? `absolute inset-y-0 flex flex-col ${marked ? 'shadow-[inset_0_2px_0_var(--term-accent)]' : ''}`
+          : 'hidden'
+      }
+      style={{ padding: config?.padding ?? 8, ...frame }}
+      // In a split, a click on the other half gives it the keyboard.
+      onMouseDownCapture={() => {
+        if (!active) useTabs.getState().activate(tab.id);
+      }}
     >
       <div ref={hostRef} className="min-h-0 w-full flex-1" />
       {config?.input.hints && (

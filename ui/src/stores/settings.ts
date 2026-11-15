@@ -13,6 +13,43 @@ import {
 } from '../ipc';
 import { imageType } from './theme';
 
+/** Where the sizes of the parts of the window are kept. View preferences, not configuration. */
+const SIDEBAR_WIDTH_KEY = 'terminal:sidebar-width';
+const SPLIT_RATIO_KEY = 'terminal:split-ratio';
+
+/** Limits of the sidebar, in pixels: wide enough to read, never most of the window. */
+export const SIDEBAR_WIDTH = { min: 160, max: 480, initial: 224 };
+/** Limits of the left half of a split, as a share of the room: neither half can vanish. */
+export const SPLIT_RATIO = { min: 0.2, max: 0.8, initial: 0.5 };
+
+/** `value` kept within `limits`; something that is not a number gives the initial value. */
+export function withinLimits(
+  value: number,
+  limits: { min: number; max: number; initial: number },
+): number {
+  if (!Number.isFinite(value)) return limits.initial;
+  return Math.min(limits.max, Math.max(limits.min, value));
+}
+
+/** A size the user chose in an earlier run, or the initial one. */
+function readSize(key: string, limits: { min: number; max: number; initial: number }): number {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved === null ? limits.initial : withinLimits(Number(saved), limits);
+  } catch {
+    // Storage can be blocked, or missing outside a browser.
+    return limits.initial;
+  }
+}
+
+function saveSize(key: string, value: number) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    // Remembered for this run only.
+  }
+}
+
 /** Where the "sidebar closed" choice is kept. A view preference, not configuration. */
 const SIDEBAR_KEY = 'terminal:sidebar-closed';
 
@@ -36,6 +73,12 @@ interface SettingsState {
   /** Object URL of the background picture, or `null` without one. */
   backgroundUrl: string | null;
   sidebarOpen: boolean;
+  /** Width of the sidebar, in pixels. */
+  sidebarWidth: number;
+  /** Share of the room the left half of a split takes, from 0 to 1. */
+  splitRatio: number;
+  setSidebarWidth: (width: number) => void;
+  setSplitRatio: (ratio: number) => void;
   /** Ready-made looks the user can apply. */
   templates: Template[];
   /** Name of the template applied a moment ago, to tell the user about the copy kept. */
@@ -104,6 +147,20 @@ export const useSettings = create<SettingsState>((set, get) => {
     zoom: 0,
     backgroundUrl: null,
     sidebarOpen: readSidebarOpen(),
+    sidebarWidth: readSize(SIDEBAR_WIDTH_KEY, SIDEBAR_WIDTH),
+    splitRatio: readSize(SPLIT_RATIO_KEY, SPLIT_RATIO),
+
+    setSidebarWidth: (width) => {
+      const sidebarWidth = Math.round(withinLimits(width, SIDEBAR_WIDTH));
+      saveSize(SIDEBAR_WIDTH_KEY, sidebarWidth);
+      set({ sidebarWidth });
+    },
+
+    setSplitRatio: (ratio) => {
+      const splitRatio = withinLimits(ratio, SPLIT_RATIO);
+      saveSize(SPLIT_RATIO_KEY, splitRatio);
+      set({ splitRatio });
+    },
     templates: [],
     appliedTemplate: null,
 

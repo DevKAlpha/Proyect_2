@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { Divider } from './components/Divider';
 import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { TerminalPane } from './components/TerminalPane';
@@ -14,7 +15,7 @@ import {
 import { useHistory } from './stores/history';
 import { sshCommand, useRemote } from './stores/remote';
 import { buildNewTabMenu, type MenuItem } from './stores/menu';
-import { pickDefaultShell, useSettings } from './stores/settings';
+import { SIDEBAR_WIDTH, SPLIT_RATIO, pickDefaultShell, useSettings } from './stores/settings';
 import { persistWorkspace, tabsOf, useTabs, type TabOptions } from './stores/tabs';
 import { missingTools, useTools } from './stores/tools';
 
@@ -94,6 +95,25 @@ async function start() {
 }
 
 /**
+ * Two terminals side by side, or back to one. With a single terminal there
+ * is nothing to put next to it, so a second one is opened: asking for a
+ * split and getting nothing would look broken.
+ */
+function toggleSplit() {
+  const tabs = useTabs.getState();
+  const alone = tabsOf(tabs.tabs, tabs.activeProjectId).length < 2;
+  if (tabs.split || !alone) return tabs.toggleSplit();
+  const first = tabs.activeId;
+  openTab();
+  const second = useTabs.getState().activeId;
+  if (first !== null && second !== null) useTabs.getState().setSplit(first, second);
+}
+
+/** How far one press of an arrow key moves a divider. */
+const SIDEBAR_STEP = 16;
+const SPLIT_STEP = 0.02;
+
+/**
  * App-wide shortcuts. Registered in the capture phase: the terminal has the
  * focus almost always and would send these keys to the shell.
  */
@@ -110,6 +130,7 @@ function handleShortcut(event: KeyboardEvent) {
   else if (event.shiftKey && key === 't') openTab();
   else if (event.shiftKey && key === 'w' && tabs.activeId !== null) tabs.close(tabs.activeId);
   else if (event.shiftKey && key === 'b') settings.toggleSidebar();
+  else if (event.shiftKey && key === 'd') toggleSplit();
   else if (key === 'tab') tabs.cycle(event.shiftKey ? -1 : 1);
   else return;
 
@@ -128,6 +149,21 @@ export function App() {
   const appliedTemplate = useSettings((state) => state.appliedTemplate);
   const applyTemplate = useSettings((state) => state.applyTemplate);
   const toggleSidebar = useSettings((state) => state.toggleSidebar);
+  const sidebarWidth = useSettings((state) => state.sidebarWidth);
+  const setSidebarWidth = useSettings((state) => state.setSidebarWidth);
+  const splitRatio = useSettings((state) => state.splitRatio);
+  const setSplitRatio = useSettings((state) => state.setSplitRatio);
+  const split = useTabs((state) => state.split);
+  // The work area, to turn a pointer position into a share of its width.
+  const workRef = useRef<HTMLElement>(null);
+  const leftShare = `${splitRatio * 100}%`;
+  /** Where a terminal is drawn: all the work area, one half of a split, or nowhere. */
+  const frameOf = (id: number) => {
+    if (!split) return id === activeId ? { left: '0', width: '100%' } : null;
+    if (id === split.left) return { left: '0', width: leftShare };
+    if (id === split.right) return { left: leftShare, width: `${(1 - splitRatio) * 100}%` };
+    return null;
+  };
   const tabs = useTabs((state) => state.tabs);
   const projects = useTabs((state) => state.projects);
   const activeProjectId = useTabs((state) => state.activeProjectId);
@@ -181,29 +217,42 @@ export function App() {
   return (
     <div className="flex h-full bg-bg text-fg">
       {sidebarOpen && (
-        <Sidebar
-          projects={projects}
-          tabs={tabs}
-          activeProjectId={activeProjectId}
-          activeId={activeId}
-          browser={browser}
-          browserError={browserError}
-          onSelectProject={store.selectProject}
-          onAddProject={() => void addProject()}
-          onRenameProject={store.renameProject}
-          onRemoveProject={store.removeProject}
-          onNewTab={openTabIn}
-          onActivateTab={store.activate}
-          onRenameTab={store.rename}
-          onCloseTab={store.close}
-          rememberedCommands={rememberedCommands}
-          onClearHistory={() => void clearHistory()}
-          onToggleBrowser={() => void toggleBrowser()}
-          onOpenConfig={() => void openConfigFile()}
-          templates={templates}
-          appliedTemplate={appliedTemplate}
-          onApplyTemplate={(id) => void applyTemplate(id)}
-        />
+        <>
+          <Sidebar
+            projects={projects}
+            tabs={tabs}
+            activeProjectId={activeProjectId}
+            activeId={activeId}
+            browser={browser}
+            browserError={browserError}
+            onSelectProject={store.selectProject}
+            onAddProject={() => void addProject()}
+            onRenameProject={store.renameProject}
+            onRemoveProject={store.removeProject}
+            onNewTab={openTabIn}
+            onActivateTab={store.activate}
+            onRenameTab={store.rename}
+            onCloseTab={store.close}
+            rememberedCommands={rememberedCommands}
+            onClearHistory={() => void clearHistory()}
+            onToggleBrowser={() => void toggleBrowser()}
+            onOpenConfig={() => void openConfigFile()}
+            width={sidebarWidth}
+            templates={templates}
+            appliedTemplate={appliedTemplate}
+            onApplyTemplate={(id) => void applyTemplate(id)}
+          />
+          <Divider
+            label="Ancho de la barra de proyectos"
+            now={sidebarWidth}
+            min={SIDEBAR_WIDTH.min}
+            max={SIDEBAR_WIDTH.max}
+            // The sidebar starts at the left edge of the window, and the
+            // pointer holds the divider by its middle, 3px further right.
+            onDrag={(clientX) => setSidebarWidth(clientX - 3)}
+            onStep={(direction) => setSidebarWidth(sidebarWidth + direction * SIDEBAR_STEP)}
+          />
+        </>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -217,6 +266,8 @@ export function App() {
           onClose={store.close}
           onNew={openTab}
           onPick={pickFromMenu}
+          split={split}
+          onToggleSplit={toggleSplit}
         />
 
         {!toolsHidden && (
@@ -243,6 +294,7 @@ export function App() {
         )}
 
         <main
+          ref={workRef}
           className="relative min-h-0 flex-1 bg-cover bg-center"
           style={backgroundUrl ? { backgroundImage: `url("${backgroundUrl}")` } : undefined}
         >
@@ -255,9 +307,27 @@ export function App() {
                 key={tab.id}
                 tab={tab}
                 active={tab.id === activeId}
+                frame={frameOf(tab.id)}
+                marked={split !== null && tab.id === activeId}
                 onConnect={connectTo}
               />
             ))}
+
+          {split && (
+            <Divider
+              label="Reparto entre las dos terminales"
+              now={splitRatio * 100}
+              min={SPLIT_RATIO.min * 100}
+              max={SPLIT_RATIO.max * 100}
+              onDrag={(clientX) => {
+                const area = workRef.current?.getBoundingClientRect();
+                if (area) setSplitRatio((clientX - area.left) / area.width);
+              }}
+              onStep={(direction) => setSplitRatio(splitRatio + direction * SPLIT_STEP)}
+              className="absolute inset-y-0 -translate-x-1/2"
+              style={{ left: leftShare }}
+            />
+          )}
 
           {config && visibleTabs.length === 0 && (
             <div className="grid h-full place-items-center text-sm text-fg/60">
