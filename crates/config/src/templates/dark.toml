@@ -1,0 +1,7 @@
+# ── Plantilla «Oscura» ──────────────────────────────────────────────────────
+# Sencilla: una sola línea cambia todos los colores. `preset` elige un tema
+# completo y lo demás se queda como estaba. Fondo oscuro con acento azul.
+
+[theme]
+# Tema de partida: "console", "dark", "light" o "high-contrast".
+preset = "dark"

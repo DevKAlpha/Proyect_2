@@ -191,9 +191,136 @@ pub fn local_folder(
     local.then(|| PathBuf::from(windows))
 }
 
+/// The file or folder on this machine that the text `written` names, for a
+/// path printed in a terminal that the user clicked. `None` when it is not a
+/// plain local path.
+///
+/// `written` is program output and gets the same distrust as a reported
+/// folder: nothing on another machine, nothing inside WSL. It can be
+/// absolute, start at the home folder (`~`), be a `file://` address, or be
+/// relative to `folder`, the folder the shell is in.
+pub fn local_path(
+    shell_id: &str,
+    written: &str,
+    os: Os,
+    git_root: Option<&Path>,
+    folder: Option<&Path>,
+    home: Option<&Path>,
+) -> Option<PathBuf> {
+    if shell_id == "wsl" || written.is_empty() || written.chars().any(char::is_control) {
+        return None;
+    }
+    if let Some(address) = written.strip_prefix("file://") {
+        // After the name of the machine, as in a reported folder.
+        let path = percent_decode(&address[address.find('/')?..])?;
+        return local_folder(shell_id, &path, os, git_root);
+    }
+    if let Some(below_home) = written.strip_prefix('~') {
+        let below_home = below_home.strip_prefix(['/', '\\']).or_else(|| {
+            // `~` alone is home; `~ana` is another user's home, not ours.
+            below_home.is_empty().then_some("")
+        })?;
+        return Some(home?.join(below_home));
+    }
+    if let Some(absolute) = local_folder(shell_id, written, os, git_root) {
+        return Some(absolute);
+    }
+    // What is left is relative, or refused. A path that starts at a root
+    // was already judged above: it must not get a second chance here.
+    // Only Windows has such paths that are not absolute (`\x`, `C:x`, `\\pc`).
+    let rooted = os == Os::Windows
+        && (written.starts_with(['/', '\\']) || written.as_bytes().get(1) == Some(&b':'));
+    if rooted {
+        return None;
+    }
+    Some(folder?.join(written))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_clicked_path_can_be_absolute_relative_or_start_at_home() {
+        let folder = Path::new("/srv/app");
+        let home = Path::new("/home/ana");
+        let at = |written| local_path("bash", written, Os::Linux, None, Some(folder), Some(home));
+
+        assert_eq!(at("/etc/hosts"), Some(PathBuf::from("/etc/hosts")));
+        assert_eq!(at("src/main.rs"), Some(folder.join("src/main.rs")));
+        assert_eq!(at("./notes.txt"), Some(folder.join("./notes.txt")));
+        assert_eq!(at("~/web/app"), Some(home.join("web/app")));
+        assert_eq!(at("~"), Some(home.join("")));
+        assert_eq!(
+            at("file://laptop/srv/mis%20cosas/a.txt"),
+            Some(PathBuf::from("/srv/mis cosas/a.txt"))
+        );
+    }
+
+    #[test]
+    fn a_clicked_path_is_refused_when_it_is_not_plainly_local() {
+        let folder = Path::new("C:\\app");
+        let at = |written| local_path("pwsh", written, Os::Windows, None, Some(folder), None);
+
+        for written in [
+            "\\\\server\\share\\a.txt",
+            "//server/share/a.txt",
+            "file://server//other/share",
+            "\\\\?\\C:\\Windows",
+            "C:relative",
+            "~ana/secret",
+            "~/needs-a-home",
+            "bad\u{1b}[31m",
+            "",
+        ] {
+            assert_eq!(at(written), None, "{written:?}");
+        }
+        assert_eq!(
+            at("C:\\Windows\\win.ini"),
+            Some(PathBuf::from("C:\\Windows\\win.ini"))
+        );
+        assert_eq!(at("src\\lib.rs"), Some(folder.join("src\\lib.rs")));
+    }
+
+    #[test]
+    fn a_relative_path_needs_a_folder_and_wsl_paths_are_not_ours() {
+        assert_eq!(
+            local_path("bash", "src/a.rs", Os::Linux, None, None, None),
+            None
+        );
+        assert_eq!(
+            local_path(
+                "wsl",
+                "/etc/hosts",
+                Os::Windows,
+                None,
+                Some(Path::new("C:\\")),
+                None
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn git_bash_paths_that_were_clicked_become_windows_paths() {
+        let git = Path::new("C:\\Program Files\\Git");
+        let at = |written| {
+            local_path(
+                "git-bash",
+                written,
+                Os::Windows,
+                Some(git),
+                Some(Path::new("C:\\app")),
+                None,
+            )
+        };
+
+        assert_eq!(
+            at("/c/Users/ana/a.txt"),
+            Some(PathBuf::from("C:\\Users\\ana\\a.txt"))
+        );
+        assert_eq!(at("/etc/hosts"), Some(git.join("etc\\hosts")));
+    }
 
     fn scan(chunks: &[&[u8]]) -> Option<String> {
         let mut scanner = CwdScanner::default();

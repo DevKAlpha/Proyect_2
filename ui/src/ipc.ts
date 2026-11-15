@@ -283,5 +283,21 @@ export const sessionPlace = (id: number) => invoke<Place | null>('session_place'
  */
 export const openFolder = (id: number) => invoke<void>('open_folder', { id });
 
+/**
+ * Which of `texts`, pieces of a line printed in the terminal of a session,
+ * are paths of this machine that exist. A relative path is looked for in the
+ * folder the shell is in.
+ */
+export const pathsExist = (id: number, shellId: string, texts: string[]) =>
+  invoke<boolean[]>('paths_exist', { id, shellId, texts });
+
+/**
+ * Shows a path printed in a terminal in the file manager of the system: a
+ * folder is opened, a file is shown selected in its folder. It never opens
+ * a file with its program. Rejects when the path is not local or is gone.
+ */
+export const revealPath = (id: number, shellId: string, text: string) =>
+  invoke<void>('reveal_path', { id, shellId, text });
+
 /** Ends a session and frees it. Safe to call after the shell exited. */
 export const killPty = (id: number) => invoke<void>('pty_kill', { id });

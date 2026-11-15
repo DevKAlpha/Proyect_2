@@ -11,7 +11,9 @@ import {
   onFilesDropped,
   openExternal,
   openFolder,
+  pathsExist,
   resizePty,
+  revealPath,
   sessionPlace,
   spawnPty,
   writePty,
@@ -27,6 +29,7 @@ import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
 import { useTabs, type Tab } from '../stores/tabs';
 import { terminalTheme } from '../stores/theme';
 import { HintBar } from './HintBar';
+import { attachPathLinks } from './pathLinks';
 import { attachPromptAssist, type PromptAssist } from './promptAssist';
 import { StatusBar } from './StatusBar';
 
@@ -156,7 +159,7 @@ export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
       // Needed by the Unicode addon below.
       allowProposedApi: true,
       // Links that programs mark themselves (OSC 8), common in agent output.
-      linkHandler: { activate: followLink },
+      linkHandler: { activate: (event, url) => openLink(event, url) },
     });
     // Agents draw their screens with emoji and wide characters. Without the
     // current width tables the cursor drifts and boxes break.
@@ -248,6 +251,24 @@ export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
         .catch(() => void readText().then((text) => text && !disposed && term.paste(text)));
     };
     // A drop lands on the window, and only the terminal on screen takes it.
+    // Paths in the output are links to the file manager; web addresses, to
+    // the browser. Neither ever opens a file with its program: output is
+    // not trusted, and a file that is a program would run.
+    const reveal = (path: string) => {
+      if (sessionId === null) return;
+      revealPath(sessionId, tab.shellId, path).catch(() =>
+        setNotice('No se pudo mostrar: ya no existe o no está en este equipo.'),
+      );
+    };
+    function openLink(event: MouseEvent, url: string) {
+      if (!/^file:/i.test(url)) return followLink(event, url);
+      if (event.ctrlKey || event.metaKey) reveal(url);
+    }
+    const pathLinks = attachPathLinks(term, {
+      exist: (paths) =>
+        sessionId === null ? Promise.resolve([]) : pathsExist(sessionId, tab.shellId, paths),
+      reveal,
+    });
     const dropped = onFilesDropped((paths) => {
       if (activeRef.current) insertFiles(paths);
     });
@@ -306,6 +327,7 @@ export function TerminalPane({ tab, active, onConnect }: TerminalPaneProps) {
       observer.disconnect();
       window.removeEventListener('focus', refreshPlace);
       void dropped.then((stop) => stop()).catch(() => {});
+      pathLinks.dispose();
       assist.dispose();
       assistRef.current = null;
       sessionRef.current = null;

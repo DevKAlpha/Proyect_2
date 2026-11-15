@@ -11,7 +11,7 @@ use serde::Serialize;
 mod cwd;
 mod integration;
 
-pub use cwd::{local_folder, CwdScanner};
+pub use cwd::{local_folder, local_path, CwdScanner};
 pub use integration::{install_support, prompt_marks, Integration};
 
 /// A shell the terminal can open in a tab.

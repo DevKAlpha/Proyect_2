@@ -36,23 +36,24 @@ style = "block"
 blink = true
 
 [theme]
-# Tema de partida: "dark", "light" o "high-contrast".
-preset = "dark"
+# Tema de partida: "console" (negro sobre blanco, como la consola de un
+# router), "dark", "light" o "high-contrast".
+preset = "console"
 # Cualquier color de abajo sustituye al del tema. Quita el "#" inicial de la
 # línea y cambia el valor. Formato: #RRGGBB, o #RRGGBBAA con transparencia.
-# background = "#14161b"
-# foreground = "#d7dae0"
-# cursor = "#8ab4f8"
-# selection = "#8ab4f84d"
+# background = "#ffffff"
+# foreground = "#000000"
+# cursor = "#000000"
+# selection = "#0b5cad40"
 # Color de la pestaña activa y del foco.
-# accent = "#8ab4f8"
+# accent = "#0b5cad"
 
 # Los 16 colores que usan los programas (errores en rojo, carpetas en azul...).
 # Nombres: black, red, green, yellow, blue, magenta, cyan, white, y los mismos
 # con "bright_" delante. Solo hace falta escribir los que quieras cambiar.
 # [theme.ansi]
-# red = "#f07178"
-# bright_blue = "#9dbcff"
+# red = "#c0261c"
+# bright_blue = "#1f78d1"
 
 [background]
 # Imagen de fondo: ruta completa a un archivo PNG, JPG, WebP o GIF. Vacío = sin

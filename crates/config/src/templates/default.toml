@@ -1,11 +1,15 @@
 # ── Plantilla «Predeterminada» ──────────────────────────────────────────────
-# El aspecto con el que llega la terminal. Vuelve aquí cuando quieras empezar
-# de nuevo.
+# El aspecto con el que llega la terminal: texto negro sobre blanco, como la
+# consola de un router, con color solo donde hace falta distinguir algo.
+# Vuelve aquí cuando quieras empezar de nuevo.
 
 [font]
 # Se usa la primera fuente de la lista que esté disponible. JetBrains Mono
 # viene incluida en la terminal; las demás deben estar instaladas en el equipo.
 family = "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+# Para la letra de máquina de escribir de las consolas de router, cambia la
+# línea de arriba por esta:
+# family = "Courier New, Courier, Liberation Mono, monospace"
 # Tamaño base. Ctrl + y Ctrl - lo cambian mientras trabajas; Ctrl 0 vuelve a este valor.
 size = 14
 # Alto de cada línea, como múltiplo del tamaño de la fuente.
@@ -18,20 +22,21 @@ style = "block"
 blink = true
 
 [theme]
-# Tema de partida: "dark", "light" o "high-contrast".
-preset = "dark"
+# Tema de partida: "console" (negro sobre blanco, como la consola de un
+# router), "dark", "light" o "high-contrast".
+preset = "console"
 # Cualquier color de abajo sustituye al del tema. Quita el "#" inicial de la
 # línea y cambia el valor. Formato: #RRGGBB, o #RRGGBBAA con transparencia.
-# background = "#14161b"
-# foreground = "#d7dae0"
-# cursor = "#8ab4f8"
-# selection = "#8ab4f84d"
+# background = "#ffffff"
+# foreground = "#000000"
+# cursor = "#000000"
+# selection = "#0b5cad40"
 # Color de la pestaña activa y del foco.
-# accent = "#8ab4f8"
+# accent = "#0b5cad"
 
 # Los 16 colores que usan los programas (errores en rojo, carpetas en azul...).
 # Nombres: black, red, green, yellow, blue, magenta, cyan, white, y los mismos
 # con "bright_" delante. Solo hace falta escribir los que quieras cambiar.
 # [theme.ansi]
-# red = "#f07178"
-# bright_blue = "#9dbcff"
+# red = "#c0261c"
+# bright_blue = "#1f78d1"

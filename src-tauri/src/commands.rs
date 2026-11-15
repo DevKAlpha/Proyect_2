@@ -477,6 +477,83 @@ pub fn open_folder(app: AppHandle, state: State<'_, AppState>, id: u32) -> Resul
         .map_err(|error| error.to_string())
 }
 
+/// Longer than any real path. Text beyond this is not looked at.
+const MAX_LINK_CHARS: usize = 1024;
+/// How many pieces of one line are checked. A line has a handful of paths.
+const MAX_LINKS_PER_LINE: usize = 32;
+
+/// The file or folder that text printed in the terminal of session `id`
+/// names, if it is a local path that exists. The text is program output:
+/// `local_path` refuses everything that is not plainly on this machine.
+fn printed_path(
+    state: &AppState,
+    id: u32,
+    shell_id: &str,
+    written: &str,
+) -> Option<std::path::PathBuf> {
+    if written.len() > MAX_LINK_CHARS {
+        return None;
+    }
+    // A relative path is relative to where the shell is.
+    let folder = match state.places.get(id) {
+        Some(Whereabouts::Local(folder)) => Some(folder),
+        _ => None,
+    };
+    let git_root = state
+        .unix_tools
+        .as_deref()
+        .and_then(|tools| tools.parent()?.parent());
+    term_shell::local_path(
+        shell_id,
+        written,
+        Os::current(),
+        git_root,
+        folder.as_deref(),
+        dirs::home_dir().as_deref(),
+    )
+    .filter(|path| path.exists())
+}
+
+/// Which of `texts`, pieces of a line printed in a terminal, are paths that
+/// exist. The UI underlines only those: most words that look like a path
+/// (`v1.2`, `and/or`) are not one. Off the main thread: it touches the disk.
+#[tauri::command(async)]
+pub fn paths_exist(
+    state: State<'_, AppState>,
+    id: u32,
+    shell_id: String,
+    texts: Vec<String>,
+) -> Vec<bool> {
+    texts
+        .iter()
+        .take(MAX_LINKS_PER_LINE)
+        .map(|text| printed_path(&state, id, &shell_id, text).is_some())
+        .collect()
+}
+
+/// Shows a path printed in a terminal in the file manager of the system: a
+/// folder is opened, a file is shown selected inside its folder.
+///
+/// Nothing is ever *opened with its program* from here. The path comes from
+/// program output, and opening a file that is a program would run it.
+#[tauri::command]
+pub fn reveal_path(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: u32,
+    shell_id: String,
+    text: String,
+) -> Result<(), String> {
+    let path = printed_path(&state, id, &shell_id, &text)
+        .ok_or("that is not a file or folder of this machine")?;
+    let shown = if path.is_dir() {
+        app.opener().open_path(path.to_string_lossy(), None::<&str>)
+    } else {
+        app.opener().reveal_item_in_dir(&path)
+    };
+    shown.map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 pub fn pty_write(state: State<'_, AppState>, id: u32, data: String) -> Result<(), String> {
     match state.sessions().get_mut(&id) {

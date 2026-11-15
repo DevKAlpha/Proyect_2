@@ -41,14 +41,21 @@ const TEMPLATES: &[Template] = &[
     Template {
         id: "default",
         name: "Predeterminada",
-        about: "El aspecto con el que llega la terminal.",
+        about: "Negro sobre blanco, como la consola de un router.",
         detailed: false,
         text: include_str!("templates/default.toml"),
     },
     Template {
+        id: "dark",
+        name: "Oscura",
+        about: "Fondo oscuro y acento azul. Una sola línea cambia todos los colores.",
+        detailed: false,
+        text: include_str!("templates/dark.toml"),
+    },
+    Template {
         id: "light",
         name: "Clara",
-        about: "Fondo claro. Una sola línea cambia todos los colores.",
+        about: "Fondo claro y tinta gris, más suave que la consola.",
         detailed: false,
         text: include_str!("templates/light.toml"),
     },

@@ -17,12 +17,14 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 - Una barra bajo cada terminal muestra la carpeta en la que estás y su rama de Git, y abre la carpeta en el explorador de archivos.
 - Control remoto: abre una terminal en otro equipo por SSH, con tus equipos guardados en un menú.
 - Borra parte de un comando seleccionándola con el ratón o con el teclado.
+- Aspecto de consola de router por defecto: negro sobre blanco, con color solo donde hace falta distinguir algo.
 - Personalizable: temas, colores, fuente, cursor e imagen de fondo.
 - Fuente JetBrains Mono incluida, texto nítido en pantallas de alta densidad y zoom con el teclado.
 - Avisa si faltan Node.js o Docker y los instala con un clic, en una pestaña donde ves el comando.
 - Pega y suelta archivos e imágenes: entran en la terminal como rutas, que es como los agentes de IA reciben una captura o un documento.
 - Plantillas de aspecto, sencillas y detalladas, para cambiar el look con un clic y aprender a personalizarlo.
-- Copiar y pegar, enlaces que se abren en el navegador.
+- Enlaces: las direcciones web se abren en el navegador, y las rutas de archivos y carpetas, en el explorador de archivos.
+- Copiar y pegar.
 
 ## Atajos
 
@@ -43,7 +45,8 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 | `Ctrl+Inicio` / `Ctrl+Fin`     | Seleccionar hasta el principio / el final del comando            |
 | `Supr` o `Retroceso`           | Borrar lo seleccionado del comando                               |
 | `Shift+Enter`                  | Línea nueva sin enviar, en agentes de IA                         |
-| `Ctrl+clic` en un enlace       | Abrir el enlace en el navegador                                  |
+| `Ctrl+clic` en un enlace       | Abrir una dirección web en el navegador                          |
+| `Ctrl+clic` en una ruta        | Mostrar el archivo o la carpeta en el explorador de archivos     |
 | `F2` o doble clic en un nombre | Cambiar el nombre de un proyecto o de una terminal               |
 
 ## Proyectos
@@ -154,6 +157,22 @@ En Windows hay tres formas de usar comandos de Linux:
 
 En PowerShell, `ls`, `cat`, `rm`, `cp` y `mv` son nombres de comandos propios de PowerShell y no aceptan las opciones de Linux. La línea de ayuda avisa y propone la forma de PowerShell.
 
+## Enlaces y rutas
+
+Lo que un programa imprime y se puede abrir queda subrayado al pasar el ratón. `Ctrl+clic` lo abre según lo que sea:
+
+- **Una dirección web** (`https://...`) se abre en tu navegador.
+- **Una carpeta** se abre en el explorador de archivos.
+- **Un archivo** se muestra seleccionado dentro de su carpeta, en el explorador de archivos.
+
+Se reconocen rutas completas (`C:\Users\ana\notas.txt`, `/etc/hosts`), desde tu carpeta personal (`~/web`), relativas a la carpeta en la que estás (`src/app.ts`, `README.md`) y direcciones `file://`. Una ruta con espacios se reconoce si va entre comillas. El número de línea que añaden los compiladores (`src/app.ts:12:5`) se ignora.
+
+- Solo se subraya lo que existe en tu equipo. Una palabra que parece una ruta y no lo es no se convierte en enlace.
+- Un archivo nunca se ejecuta ni se abre con su programa: solo se muestra en el explorador. Lo que imprime un programa no es de fiar, y abrir así un ejecutable lo pondría en marcha.
+- Las rutas de otro equipo (`\\servidor\carpeta`) no se abren.
+- Una ruta que no cabe en una fila y sigue en la siguiente no se reconoce.
+- En WSL las rutas son de Linux y no se pueden mostrar desde aquí.
+
 ## Pegar archivos e imágenes
 
 Una terminal solo recibe texto, así que un archivo entra como su ruta. Es lo que esperan los programas, y sobre todo los agentes de IA: pega la ruta de una captura en Claude Code y la adjunta.
@@ -218,7 +237,7 @@ El puerto se cambia con `[browser] port` en la configuración.
 
 ```toml
 [theme]
-preset = "light"            # "dark", "light" o "high-contrast"
+preset = "light"            # "console", "dark", "light" o "high-contrast"
 background = "#fdf6e3"      # cualquier color sustituye al del tema
 accent = "#b58900"
 
@@ -244,16 +263,17 @@ La imagen de fondo se ve en las pestañas abiertas después de ponerla.
 
 «Plantillas», en la barra lateral, cambia colores, fuente y cursor por un aspecto ya hecho. Sirven para dos cosas: cambiar el look con un clic y ver cómo se escribe una personalización. Después de aplicar una, «Personalizar» abre tu archivo con el texto de la plantilla, comentado, para que lo cambies a tu gusto.
 
-| Plantilla      | Tipo      | Qué enseña                                             |
-| -------------- | --------- | ------------------------------------------------------ |
-| Predeterminada | Sencilla  | El aspecto de fábrica, con todas las opciones a mano   |
-| Clara          | Sencilla  | Una sola línea (`preset`) cambia todos los colores     |
-| Alto contraste | Sencilla  | Un tema ya hecho y una letra más grande                |
-| Ámbar          | Sencilla  | Retocar tres colores de un tema sin escribirlo entero  |
-| Nórdica        | Detallada | Todos los colores, la fuente y el cursor, en azules    |
-| Drácula        | Detallada | Los 16 colores de los programas, muy vivos             |
-| Papel          | Detallada | Un tema claro escrito color a color                    |
-| Fósforo verde  | Detallada | Un solo color en varios tonos, como un monitor antiguo |
+| Plantilla      | Tipo      | Qué enseña                                                               |
+| -------------- | --------- | ------------------------------------------------------------------------ |
+| Predeterminada | Sencilla  | El aspecto de fábrica (consola de router), con todas las opciones a mano |
+| Oscura         | Sencilla  | Una sola línea (`preset`) cambia todos los colores                       |
+| Clara          | Sencilla  | Otro tema ya hecho: fondo claro y tinta gris                             |
+| Alto contraste | Sencilla  | Un tema ya hecho y una letra más grande                                  |
+| Ámbar          | Sencilla  | Retocar tres colores de un tema sin escribirlo entero                    |
+| Nórdica        | Detallada | Todos los colores, la fuente y el cursor, en azules                      |
+| Drácula        | Detallada | Los 16 colores de los programas, muy vivos                               |
+| Papel          | Detallada | Un tema claro escrito color a color                                      |
+| Fósforo verde  | Detallada | Un solo color en varios tonos, como un monitor antiguo                   |
 
 - Una plantilla solo sustituye las secciones `[font]`, `[cursor]` y `[theme]` de tu archivo. El shell, los agentes, la imagen de fondo y el resto de tus ajustes quedan como estaban.
 - Lo que tuvieras escrito en esas tres secciones se reemplaza. Antes de cambiar nada, tu archivo se copia como `config.backup.toml` en la misma carpeta. Solo se guarda una copia: la del último cambio.
