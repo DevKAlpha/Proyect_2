@@ -25,13 +25,33 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "deb", "rpm", "appimage", "dmg", "app"],
+    "publisher": "DevKAlpha",
+    "category": "Utility",
+    "shortDescription": "Terminal de escritorio para shells, Git y agentes de IA",
+    "longDescription": "Terminal de escritorio ligera para Windows, Linux y macOS. Trabaja con los shells de cada sistema, con Git y con agentes de IA, y ayuda a quien empieza a usar una terminal.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Spanish", "English"],
+        "displayLanguageSelector": false
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "utils"
+      },
+      "rpm": {}
+    }
   }
 }

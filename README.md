@@ -4,6 +4,56 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 
 > «Terminal» es un nombre provisional. El identificador de la app (`com.devkalpha.terminal`) y la carpeta de configuración cambian cuando se elija el definitivo.
 
+## Instalar
+
+Hay dos formas en cada sistema: con un comando o con un instalador. Las dos instalan lo mismo, completo: la aplicación y lo que necesita para funcionar. Los archivos están en la página de [versiones](https://github.com/DevKAlpha/Proyect_2/releases/latest).
+
+### Windows
+
+Con un comando, en PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install.ps1 | iex
+```
+
+O con el instalador: descarga `terminal-setup-x64.exe` y ábrelo.
+
+- Se instala solo para tu usuario. No pide permisos de administrador.
+- Incluye WebView2, el componente de Windows que dibuja la ventana, por si tu equipo no lo trae. Es lo único que la aplicación necesita.
+- Crea el acceso «Terminal» en el menú Inicio y se desinstala desde «Aplicaciones instaladas».
+- El instalador no está firmado todavía. Windows puede mostrar el aviso «Windows protegió su PC»: pulsa «Más información» y «Ejecutar de todas formas».
+
+### Linux
+
+Con un comando:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install.sh | sh
+```
+
+El comando elige el paquete de tu distribución y lo instala con tu gestor de paquetes, que añade las dependencias (WebKitGTK y GTK):
+
+| Distribución               | Paquete                    | Se instala con            |
+| -------------------------- | -------------------------- | ------------------------- |
+| Debian, Ubuntu, Mint       | `terminal-amd64.deb`       | `apt-get`                 |
+| Fedora, RHEL, openSUSE     | `terminal-x86_64.rpm`      | `dnf`, `yum` o `zypper`   |
+| Cualquier otra, o sin root | `terminal-x86_64.AppImage` | se copia a `~/.local/bin` |
+
+También puedes descargar el paquete e instalarlo tú: `sudo apt install ./terminal-amd64.deb` o `sudo dnf install ./terminal-x86_64.rpm`. El AppImage lleva dentro todo lo que necesita y no se instala: dale permiso de ejecución y ábrelo.
+
+- `sh install.sh --appimage` usa el AppImage aunque haya gestor de paquetes: no pide contraseña y no toca el sistema.
+- Por ahora solo hay paquetes para equipos x86_64.
+
+### Qué hacen los comandos de instalación
+
+Ejecutar un comando descargado de internet merece desconfianza, también este. Los dos son cortos y están en este repositorio (`install.ps1`, `install.sh`): puedes leerlos antes, o descargarlos y ejecutarlos en dos pasos.
+
+- Descargan el instalador de la última versión y el archivo `SHA256SUMS`, solo por https.
+- Comprueban que el instalador coincide con su suma SHA-256. Si no coincide, no instalan nada.
+- No instalan nada más y no cambian ajustes del sistema.
+- Esa suma protege de una descarga rota o alterada por el camino. No protege si alguien cambiara los archivos publicados en el repositorio.
+- Para instalar sin conexión, pon el instalador y `SHA256SUMS` en una carpeta y pásala: `.\install.ps1 -Source C:\carpeta` o `sh install.sh --from /carpeta`.
+
 ## Qué hace
 
 - Detecta los shells instalados (PowerShell, Windows PowerShell, cmd, Git Bash, WSL, bash, zsh, fish).
@@ -293,7 +343,7 @@ Requisitos: [Node.js](https://nodejs.org) 20 o superior, [Rust](https://rustup.r
 ```
 npm install
 npm run tauri dev      # abre la app con recarga en caliente
-npm run tauri build    # genera el instalador en target/release/bundle
+npm run tauri build    # genera los instaladores de este sistema en target/release/bundle
 ```
 
 Comprobaciones:
