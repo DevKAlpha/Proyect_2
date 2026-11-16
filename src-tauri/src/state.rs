@@ -78,6 +78,13 @@ impl AppState {
     /// A broken file must not stop the terminal from opening, so each one
     /// falls back to its default.
     pub fn load() -> Self {
+        // Earlier versions kept their data next to the program. It goes to
+        // its own folder before anything reads it.
+        if let Some(local) = term_config::local_dir() {
+            if let Err(error) = term_config::tidy_data(&local) {
+                eprintln!("old data was left where it was: {error}");
+            }
+        }
         let config_path = term_config::default_path();
         let config = config_path
             .as_deref()
@@ -115,8 +122,8 @@ impl AppState {
             .unwrap_or_default();
 
         let shells = term_shell::detect_shells();
-        let shell_support = dirs::data_local_dir()
-            .map(|folder| folder.join("terminal").join("shell"))
+        let shell_support = term_config::data_dir()
+            .map(|folder| folder.join("shell"))
             .filter(|folder| match term_shell::install_support(folder) {
                 Ok(()) => true,
                 Err(error) => {
@@ -231,9 +238,8 @@ impl AppState {
             .test_browser
             .as_ref()
             .ok_or("no Chrome, Edge or Chromium was found on this machine")?;
-        let profile = dirs::data_local_dir()
+        let profile = term_config::data_dir()
             .ok_or("this system has no folder for application data")?
-            .join("terminal")
             .join("browser-profile");
         let port = lock(&self.config).browser.port;
         let child =

@@ -92,6 +92,9 @@ interface SettingsState {
   /** Loads configuration and shells, then follows edits of the file. */
   load: () => Promise<void>;
   dismissConfigError: () => void;
+  /** Whether the list of keyboard shortcuts is on screen. */
+  helpOpen: boolean;
+  toggleHelp: () => void;
   /** Makes the text one step larger (`1`) or smaller (`-1`). */
   zoomBy: (step: 1 | -1) => void;
   resetZoom: () => void;
@@ -215,6 +218,9 @@ export const useSettings = create<SettingsState>((set, get) => {
     },
 
     dismissConfigError: () => set({ configError: null }),
+
+    helpOpen: false,
+    toggleHelp: () => set((state) => ({ helpOpen: !state.helpOpen })),
   };
 });
 

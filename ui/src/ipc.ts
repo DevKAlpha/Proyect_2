@@ -7,6 +7,7 @@
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
 /** A shell the terminal can open in a tab. */
@@ -178,6 +179,22 @@ export const onFilesDropped = (handler: (paths: string[]) => void): Promise<Unli
 
 /** Opens the configuration file in the user's editor. */
 export const openConfigFile = () => invoke<void>('open_config_file');
+
+/**
+ * The folders of the app: `program` is what the installer put on the
+ * machine, `config` holds the configuration file and the saved projects,
+ * `data` what the app collects (history, pasted pictures).
+ */
+export type AppFolder = 'program' | 'config' | 'data';
+
+/** Shows one of the folders of the app in the file manager of the system. */
+export const openAppFolder = (which: AppFolder) => invoke<void>('open_app_folder', { which });
+
+/** Makes the window fill the screen, or takes it back to its size. */
+export async function toggleFullscreen(): Promise<void> {
+  const window = getCurrentWindow();
+  await window.setFullscreen(!(await window.isFullscreen()));
+}
 
 /** The background picture named in the configuration, as raw bytes. */
 export const readBackground = () => invoke<ArrayBuffer>('read_background');

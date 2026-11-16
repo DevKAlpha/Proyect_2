@@ -36,11 +36,17 @@ pub struct History {
     entries: Vec<String>,
 }
 
-/// Where the history lives. A folder that stays on this machine: history
+/// Where the history lives: the data folder of the app (see `term-config`,
+/// module `folders`, for the layout). A folder that stays on this machine: history
 /// can hold what the filter missed, and must not follow the user's account
 /// to other computers.
 pub fn history_path() -> Option<PathBuf> {
-    Some(dirs::data_local_dir()?.join("terminal").join("history.txt"))
+    Some(
+        dirs::data_local_dir()?
+            .join("terminal")
+            .join("data")
+            .join("history.txt"),
+    )
 }
 
 /// Whether `command` looks like it carries a credential.

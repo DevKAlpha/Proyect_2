@@ -1,0 +1,107 @@
+TERMINAL: QUÉ HAY EN TU EQUIPO Y DÓNDE
+======================================
+
+Este archivo se instala junto al programa. Explica qué archivos pone la
+terminal en tu equipo, para qué sirve cada uno y cómo comprobarlos.
+
+Dentro de la aplicación, el menú «Carpetas» de la barra lateral abre cada
+una de estas carpetas en el explorador de archivos.
+
+
+1. TRES CARPETAS, CADA UNA CON UN TRABAJO
+-----------------------------------------
+
+  PROGRAMA        lo que puso el instalador. No lo cambia nadie más.
+  CONFIGURACIÓN   lo que escribes tú: aspecto, shell, agentes.
+  DATOS           lo que la terminal va guardando mientras la usas.
+
+Borrar DATOS no rompe nada: solo se pierden los comandos recordados y las
+imágenes pegadas. Borrar CONFIGURACIÓN devuelve la terminal a su aspecto
+de fábrica. PROGRAMA se quita con el desinstalador.
+
+
+2. WINDOWS
+----------
+
+  PROGRAMA        %LOCALAPPDATA%\Terminal\
+                    terminal-app.exe     la aplicación
+                    uninstall.exe        el desinstalador
+                    LEEME.txt            este archivo
+
+  CONFIGURACIÓN   %APPDATA%\terminal\
+                    config.toml          tu configuración (se edita a mano)
+                    config.backup.toml   la anterior, tras aplicar una plantilla
+                    workspace.json       tus proyectos y sus terminales
+
+  DATOS           %LOCALAPPDATA%\Terminal\data\
+                    history.txt          comandos recordados, uno por línea
+                    pasted\              imágenes pegadas (se borran a los 7 días)
+                    shell\               archivo de arranque para zsh
+                    browser-profile\     perfil del navegador de pruebas
+
+  Acceso directo  Menú Inicio > Terminal
+
+Para escribir una de esas rutas, pégala en la barra del Explorador de
+archivos o en el cuadro Ejecutar (Windows + R).
+
+
+3. LINUX
+--------
+
+Con paquete .deb o .rpm:
+
+  PROGRAMA        /usr/bin/terminal-app                      la aplicación
+                  /usr/lib/Terminal/LEEME.txt                este archivo
+                  /usr/share/applications/Terminal.desktop   entrada del menú
+                  /usr/share/icons/hicolor/                  iconos
+
+Con AppImage (instalado con install.sh):
+
+  PROGRAMA        ~/.local/bin/terminal-app                  la aplicación entera
+                  ~/.local/share/applications/terminal-app.desktop
+
+En los dos casos:
+
+  CONFIGURACIÓN   ~/.config/terminal/
+                    config.toml, config.backup.toml, workspace.json
+
+  DATOS           ~/.local/share/terminal/data/
+                    history.txt, pasted/, shell/, browser-profile/
+
+
+4. ABRIRLA DESDE UNA TERMINAL
+-----------------------------
+
+  Windows   & "$env:LOCALAPPDATA\Terminal\terminal-app.exe"
+  Linux     terminal-app
+
+
+5. COMPROBAR QUE EL INSTALADOR ES EL PUBLICADO
+----------------------------------------------
+
+Cada versión se publica con un archivo SHA256SUMS: la suma de cada
+instalador. Descarga los dos a la misma carpeta y compara.
+
+  Windows   Get-FileHash .\terminal-setup-x64.exe -Algorithm SHA256
+            (el resultado debe ser la suma que trae SHA256SUMS)
+
+  Linux     sha256sum -c SHA256SUMS --ignore-missing
+
+Los comandos de instalación (install.ps1, install.sh) hacen esta
+comprobación solos y no instalan nada si no coincide.
+
+Versiones:  https://github.com/DevKAlpha/Proyect_2/releases
+
+
+6. DESINSTALAR
+--------------
+
+  Windows   Configuración > Aplicaciones > Aplicaciones instaladas > Terminal
+            o ejecuta uninstall.exe en la carpeta del programa.
+  Debian    sudo apt remove terminal
+  Fedora    sudo dnf remove terminal
+  AppImage  borra ~/.local/bin/terminal-app y
+            ~/.local/share/applications/terminal-app.desktop
+
+Desinstalar no borra CONFIGURACIÓN ni DATOS. Si no vas a volver a usar la
+terminal, borra esas dos carpetas a mano.

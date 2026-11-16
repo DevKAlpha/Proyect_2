@@ -52,6 +52,9 @@
         "section": "utils"
       },
       "rpm": {}
+    },
+    "resources": {
+      "../install/LEEME.txt": "LEEME.txt"
     }
   }
 }

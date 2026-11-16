@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
-import type { BrowserStatus, Template } from '../ipc';
+import type { AppFolder, BrowserStatus, Template } from '../ipc';
 import { tabsOf, type Project, type Tab } from '../stores/tabs';
 
 interface SidebarProps {
@@ -26,6 +26,10 @@ interface SidebarProps {
   onClearHistory: () => void;
   onToggleBrowser: () => void;
   onOpenConfig: () => void;
+  /** Shows one of the folders of the app in the file manager. */
+  onOpenAppFolder: (which: AppFolder) => void;
+  /** Shows the list of keyboard shortcuts. */
+  onShowShortcuts: () => void;
   /** Width in pixels, chosen by the user with the divider next to it. */
   width: number;
   /** Ready-made looks: colours, font and cursor. */
@@ -305,8 +309,9 @@ export function Sidebar(props: SidebarProps) {
         {props.templates.length > 0 && (
           // A native select: keyboard and screen-reader support for free.
           <select
+            data-menu="templates"
             aria-label="Plantillas de aspecto"
-            title="Cambia colores, fuente y cursor por un aspecto ya hecho. Lo demás de tu configuración no cambia, y se guarda una copia de la anterior."
+            title="(Ctrl+Shift+P) Cambia colores, fuente y cursor por un aspecto ya hecho. Lo demás de tu configuración no cambia, y se guarda una copia de la anterior."
             value=""
             onChange={(event) => props.onApplyTemplate(event.target.value)}
             className={`cursor-pointer appearance-none bg-transparent ${footerButton}`}
@@ -341,11 +346,41 @@ export function Sidebar(props: SidebarProps) {
         )}
         <button
           type="button"
-          title="Abre el archivo de configuración: colores, fuente, fondo, agentes"
+          title="Abre el archivo de configuración: colores, fuente, fondo, agentes (Ctrl+Shift+S)"
           onClick={props.onOpenConfig}
           className={footerButton}
         >
           Personalizar
+        </button>
+        {/* Where the app keeps its files, one click away. */}
+        <select
+          data-menu="folders"
+          aria-label="Carpetas de la terminal"
+          title="(Ctrl+Shift+F) Abre en el explorador de archivos una de las carpetas de la terminal. El archivo LEEME.txt de la carpeta del programa explica qué hay en cada una."
+          value=""
+          onChange={(event) => props.onOpenAppFolder(event.target.value as AppFolder)}
+          className={`cursor-pointer appearance-none bg-transparent ${footerButton}`}
+        >
+          <option value="" disabled hidden>
+            Carpetas
+          </option>
+          <option value="program" className="bg-bg text-fg">
+            Programa: la aplicación y LEEME.txt
+          </option>
+          <option value="config" className="bg-bg text-fg">
+            Configuración: config.toml y tus proyectos
+          </option>
+          <option value="data" className="bg-bg text-fg">
+            Datos: comandos recordados e imágenes pegadas
+          </option>
+        </select>
+        <button
+          type="button"
+          title="Muestra todos los atajos de teclado (F1)"
+          onClick={props.onShowShortcuts}
+          className={footerButton}
+        >
+          Atajos de teclado
         </button>
       </div>
     </nav>

@@ -96,8 +96,9 @@ export function TabBar(props: TabBarProps) {
       {items.length > 1 && (
         // A native select: keyboard and screen-reader support for free.
         <select
+          data-menu="new-tab"
           aria-label="Nueva pestaña con un shell o un agente"
-          title="Nueva pestaña con un shell o un agente"
+          title="Nueva pestaña con un shell o un agente (Ctrl+Shift+M)"
           value=""
           onChange={(event) => {
             const item = items.find((candidate) => candidate.key === event.target.value);

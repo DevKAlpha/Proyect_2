@@ -10,10 +10,12 @@ use std::path::{Path, PathBuf};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 
+mod folders;
 mod templates;
 mod theme;
 mod workspace;
 
+pub use folders::{config_dir, data_dir, local_dir, tidy_data};
 pub use templates::{apply_template, templates, Template};
 pub use theme::{Theme, ANSI_NAMES};
 pub use workspace::{workspace_path, Project, SavedTerminal, Workspace};

@@ -1,7 +1,7 @@
 #!/bin/sh
 # Instala Terminal en Linux desde la línea de comandos.
 #
-#   curl -fsSL https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install/install.sh | sh
 #
 # Elige el paquete de tu distribución, comprueba que llegó entero (SHA-256)
 # y lo instala con el gestor de paquetes, que añade las dependencias:

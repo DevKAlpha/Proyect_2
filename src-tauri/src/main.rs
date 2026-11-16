@@ -32,6 +32,7 @@ fn main() {
             commands::ssh_status,
             commands::get_config,
             commands::open_config_file,
+            commands::open_app_folder,
             commands::list_templates,
             commands::apply_template,
             commands::clipboard_paste,

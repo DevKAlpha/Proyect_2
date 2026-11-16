@@ -5,7 +5,7 @@ use std::path::Path;
 
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody, Response};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use term_browser::Connector;
@@ -152,7 +152,7 @@ const PASTED_PICTURES_KEPT: std::time::Duration = std::time::Duration::from_secs
 /// Folder where pictures pasted from the clipboard are saved. It stays on
 /// this machine: a screenshot can show anything.
 fn pasted_folder() -> Option<std::path::PathBuf> {
-    Some(dirs::data_local_dir()?.join("terminal").join("pasted"))
+    Some(term_config::data_dir()?.join("pasted"))
 }
 
 /// Deletes the pasted pictures that are old. Called once at start.
@@ -195,6 +195,35 @@ pub fn clipboard_paste() -> Result<Pasted, String> {
             paths: Vec::new(),
         },
     })
+}
+
+/// Shows one of the folders of the app in the file manager of the system,
+/// so that its files are one click away: `program` (what the installer put
+/// on the machine), `config` (the configuration file and the saved
+/// projects) or `data` (history, pasted pictures).
+///
+/// The UI names a folder, never a path.
+#[tauri::command]
+pub fn open_app_folder(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    which: String,
+) -> Result<(), String> {
+    let folder = match which.as_str() {
+        "program" => app.path().resource_dir().ok(),
+        "config" => state
+            .config_path()
+            .and_then(|file| file.parent())
+            .map(Path::to_path_buf),
+        "data" => term_config::data_dir(),
+        _ => return Err(format!("unknown folder: {which}")),
+    }
+    .ok_or("this system has no such folder")?;
+    // The data folder appears with the first thing saved in it.
+    std::fs::create_dir_all(&folder).map_err(|error| error.to_string())?;
+    app.opener()
+        .open_path(folder.to_string_lossy(), None::<&str>)
+        .map_err(|error| error.to_string())
 }
 
 /// Opens the configuration file in the user's editor. Customising the

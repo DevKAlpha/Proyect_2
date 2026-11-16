@@ -13,7 +13,7 @@ Hay dos formas en cada sistema: con un comando o con un instalador. Las dos inst
 Con un comando, en PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install/install.ps1 | iex
 ```
 
 O con el instalador: descarga `terminal-setup-x64.exe` y ábrelo.
@@ -28,7 +28,7 @@ O con el instalador: descarga `terminal-setup-x64.exe` y ábrelo.
 Con un comando:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install/install.sh | sh
 ```
 
 El comando elige el paquete de tu distribución y lo instala con tu gestor de paquetes, que añade las dependencias (WebKitGTK y GTK):
@@ -46,7 +46,7 @@ También puedes descargar el paquete e instalarlo tú: `sudo apt install ./termi
 
 ### Qué hacen los comandos de instalación
 
-Ejecutar un comando descargado de internet merece desconfianza, también este. Los dos son cortos y están en este repositorio (`install.ps1`, `install.sh`): puedes leerlos antes, o descargarlos y ejecutarlos en dos pasos.
+Ejecutar un comando descargado de internet merece desconfianza, también este. Los dos son cortos y están en la carpeta `install/` de este repositorio (`install.ps1`, `install.sh`): puedes leerlos antes, o descargarlos y ejecutarlos en dos pasos.
 
 - Descargan el instalador de la última versión y el archivo `SHA256SUMS`, solo por https.
 - Comprueban que el instalador coincide con su suma SHA-256. Si no coincide, no instalan nada.
@@ -75,31 +75,48 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 - Pega y suelta archivos e imágenes: entran en la terminal como rutas, que es como los agentes de IA reciben una captura o un documento.
 - Plantillas de aspecto, sencillas y detalladas, para cambiar el look con un clic y aprender a personalizarlo.
 - Enlaces: las direcciones web se abren en el navegador, y las rutas de archivos y carpetas, en el explorador de archivos.
+- Atajos de teclado para todo: terminales, proyectos, vista dividida, menús y pantalla completa. `F1` los muestra.
+- Archivos ordenados en tres carpetas (programa, configuración y datos), a un clic desde el menú «Carpetas».
 - Copiar y pegar.
 
 ## Atajos
 
-| Atajo                          | Acción                                                           |
-| ------------------------------ | ---------------------------------------------------------------- |
-| `Ctrl+Shift+T`                 | Nueva pestaña                                                    |
-| `Ctrl+Shift+W`                 | Cerrar pestaña                                                   |
-| `Ctrl+Tab` / `Ctrl+Shift+Tab`  | Pestaña siguiente / anterior, dentro del proyecto                |
-| `Ctrl+Shift+B`                 | Mostrar u ocultar la barra de proyectos                          |
-| `Ctrl+Shift+D`                 | Vista dividida: dos terminales lado a lado, o volver a una       |
-| `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Texto más grande / más pequeño / tamaño normal                   |
-| `Ctrl+Shift+C`                 | Copiar                                                           |
-| `Ctrl+C`                       | Copiar si hay texto seleccionado; si no, interrumpir el programa |
-| `Ctrl+V` / `Ctrl+Shift+V`      | Pegar texto, archivos o una imagen                               |
-| `→`                            | Aceptar el comando sugerido en gris                              |
-| `Ctrl+.`                       | Aplicar el cambio que propone la línea de ayuda                  |
-| `Ctrl+←` / `Ctrl+→`            | Seleccionar el comando carácter a carácter                       |
-| `Ctrl+↑` / `Ctrl+↓`            | Seleccionar por filas, si el comando ocupa varias                |
-| `Ctrl+Inicio` / `Ctrl+Fin`     | Seleccionar hasta el principio / el final del comando            |
-| `Supr` o `Retroceso`           | Borrar lo seleccionado del comando                               |
-| `Shift+Enter`                  | Línea nueva sin enviar, en agentes de IA                         |
-| `Ctrl+clic` en un enlace       | Abrir una dirección web en el navegador                          |
-| `Ctrl+clic` en una ruta        | Mostrar el archivo o la carpeta en el explorador de archivos     |
-| `F2` o doble clic en un nombre | Cambiar el nombre de un proyecto o de una terminal               |
+`F1` muestra esta lista dentro de la terminal. Casi todos son `Ctrl+Shift` más una letra: una terminal no puede enviar esas combinaciones a un shell, así que ningún atajo le quita una tecla a un programa.
+
+| Atajo                           | Acción                                                           |
+| ------------------------------- | ---------------------------------------------------------------- |
+| `Ctrl+Shift+T`                  | Nueva pestaña                                                    |
+| `Ctrl+Shift+W`                  | Cerrar pestaña                                                   |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab`   | Pestaña siguiente / anterior, dentro del proyecto                |
+| `Ctrl+Shift+B`                  | Mostrar u ocultar la barra de proyectos                          |
+| `Ctrl+Shift+D`                  | Vista dividida: dos terminales lado a lado, o volver a una       |
+| `Ctrl+Shift+E`                  | Pasar el teclado a la otra mitad                                 |
+| `Ctrl+Shift+←` / `Ctrl+Shift+→` | Dar más sitio a la mitad derecha / izquierda                     |
+| `F11`                           | Pantalla completa                                                |
+| `Ctrl+1` … `Ctrl+9`             | Ir a la terminal 1 a 9 del proyecto                              |
+| `Ctrl+Shift+↓` / `Ctrl+Shift+↑` | Proyecto siguiente / anterior                                    |
+| `Ctrl+Shift+N`                  | Nuevo proyecto                                                   |
+| `Ctrl+Shift+M`                  | Menú de terminal nueva: elegir shell o agente de IA              |
+| `Ctrl+Shift+P`                  | Menú de plantillas de aspecto                                    |
+| `Ctrl+Shift+S`                  | Abrir el archivo de configuración                                |
+| `Ctrl+Shift+F`                  | Menú de carpetas de la terminal                                  |
+| `Ctrl+Shift+O`                  | Abrir la carpeta actual en el explorador de archivos             |
+| `Ctrl+Shift+R`                  | Menú de control remoto (SSH)                                     |
+| `F1`                            | Mostrar u ocultar la lista de atajos                             |
+| `Ctrl++` / `Ctrl+-` / `Ctrl+0`  | Texto más grande / más pequeño / tamaño normal                   |
+| `Ctrl+Shift+C`                  | Copiar                                                           |
+| `Ctrl+C`                        | Copiar si hay texto seleccionado; si no, interrumpir el programa |
+| `Ctrl+V` / `Ctrl+Shift+V`       | Pegar texto, archivos o una imagen                               |
+| `→`                             | Aceptar el comando sugerido en gris                              |
+| `Ctrl+.`                        | Aplicar el cambio que propone la línea de ayuda                  |
+| `Ctrl+←` / `Ctrl+→`             | Seleccionar el comando carácter a carácter                       |
+| `Ctrl+↑` / `Ctrl+↓`             | Seleccionar por filas, si el comando ocupa varias                |
+| `Ctrl+Inicio` / `Ctrl+Fin`      | Seleccionar hasta el principio / el final del comando            |
+| `Supr` o `Retroceso`            | Borrar lo seleccionado del comando                               |
+| `Shift+Enter`                   | Línea nueva sin enviar, en agentes de IA                         |
+| `Ctrl+clic` en un enlace        | Abrir una dirección web en el navegador                          |
+| `Ctrl+clic` en una ruta         | Mostrar el archivo o la carpeta en el explorador de archivos     |
+| `F2` o doble clic en un nombre  | Cambiar el nombre de un proyecto o de una terminal               |
 
 ## Proyectos
 
@@ -171,11 +188,11 @@ select_with = "shift"
 
 **Qué se guarda.** Los comandos se guardan en un archivo de texto que puedes leer, editar o borrar:
 
-| Sistema | Ruta                                                 |
-| ------- | ---------------------------------------------------- |
-| Windows | `%LOCALAPPDATA%\terminal\history.txt`                |
-| Linux   | `~/.local/share/terminal/history.txt`                |
-| macOS   | `~/Library/Application Support/terminal/history.txt` |
+| Sistema | Ruta                                                      |
+| ------- | --------------------------------------------------------- |
+| Windows | `%LOCALAPPDATA%\Terminal\data\history.txt`                |
+| Linux   | `~/.local/share/terminal/data/history.txt`                |
+| macOS   | `~/Library/Application Support/terminal/data/history.txt` |
 
 - No se guardan los comandos que parecen llevar una credencial (contienen `password`, `token`, `secret`, `apikey` y similares).
 - No se guarda un comando que empieza por un espacio. Úsalo cuando no quieras dejar rastro.
@@ -260,11 +277,11 @@ Sirve cualquier tipo de archivo (imágenes, PDF, documentos, hojas de cálculo, 
 - Si el portapapeles tiene a la vez texto y una imagen (pasa al copiar celdas de una hoja de cálculo), se pega el texto.
 - Las imágenes pegadas se guardan en tu equipo y se borran solas a los 7 días:
 
-| Sistema | Carpeta                                         |
-| ------- | ----------------------------------------------- |
-| Windows | `%LOCALAPPDATA%\terminal\pasted`                |
-| Linux   | `~/.local/share/terminal/pasted`                |
-| macOS   | `~/Library/Application Support/terminal/pasted` |
+| Sistema | Carpeta                                              |
+| ------- | ---------------------------------------------------- |
+| Windows | `%LOCALAPPDATA%\Terminal\data\pasted`                |
+| Linux   | `~/.local/share/terminal/data/pasted`                |
+| macOS   | `~/Library/Application Support/terminal/data/pasted` |
 
 ## Agentes de IA
 
@@ -357,6 +374,21 @@ El archivo se crea en el primer arranque, con comentarios que explican cada opci
 | Linux   | `~/.config/terminal/config.toml`                     |
 | macOS   | `~/Library/Application Support/terminal/config.toml` |
 
+## Dónde están los archivos
+
+La terminal usa tres carpetas, cada una con un trabajo. El menú «Carpetas» de la barra lateral (`Ctrl+Shift+F`) abre cualquiera de ellas en el explorador de archivos.
+
+| Carpeta       | Qué hay                                                                | Windows                        | Linux                                         |
+| ------------- | ---------------------------------------------------------------------- | ------------------------------ | --------------------------------------------- |
+| Programa      | La aplicación, el desinstalador y `LEEME.txt`                          | `%LOCALAPPDATA%\Terminal`      | `/usr/bin/terminal-app` y `/usr/lib/Terminal` |
+| Configuración | `config.toml`, su copia y tus proyectos                                | `%APPDATA%\terminal`           | `~/.config/terminal`                          |
+| Datos         | Comandos recordados, imágenes pegadas, perfil del navegador de pruebas | `%LOCALAPPDATA%\Terminal\data` | `~/.local/share/terminal/data`                |
+
+- `LEEME.txt`, en la carpeta del programa, explica archivo por archivo qué es cada cosa, cómo abrir la terminal desde otra terminal, cómo comprobar un instalador con su suma SHA-256 y cómo desinstalar.
+- Borrar la carpeta de datos no rompe nada: solo se pierden los comandos recordados y las imágenes pegadas. Borrar la de configuración devuelve el aspecto de fábrica.
+- Desinstalar no toca ni la configuración ni los datos.
+- Las versiones anteriores guardaban los datos sueltos junto al programa. Al abrir esta versión se mueven solos a `data`.
+
 ## Desarrollo
 
 Requisitos: [Node.js](https://nodejs.org) 20 o superior, [Rust](https://rustup.rs) estable y los [requisitos de Tauri](https://tauri.app/start/prerequisites/) para tu sistema (en Windows, las Build Tools de Visual Studio con C++).
@@ -391,5 +423,6 @@ crates/paste    Archivos e imágenes del portapapeles, convertidos en rutas
 crates/tools    Herramientas, agentes de IA y equipos de SSH: qué hay y cómo instalar lo que falta
 crates/browser  Navegador de pruebas aislado para los agentes
 src-tauri/      App de escritorio: ventana, comandos IPC y eventos
+install/        Instalar por comando (install.ps1, install.sh) y el LEEME.txt que se instala
 ui/             Interfaz: React, TypeScript, Tailwind y xterm.js
 ```

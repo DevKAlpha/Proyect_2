@@ -154,12 +154,13 @@ function RemoteControl({ available, hosts, onConnect, onCancel }: RemoteControlP
     // A native select laid over the label: keyboard and screen-reader
     // support for free, as in the new-tab menu.
     <label
-      title="Abre una terminal en otro equipo por SSH"
+      title="Abre una terminal en otro equipo por SSH (Ctrl+Shift+R)"
       className={`relative focus-within:ring-2 focus-within:ring-accent ${action}`}
     >
       <RemoteIcon />
       <span className={label}>Control remoto</span>
       <select
+        data-menu="remote"
         aria-label="Control remoto: conectar a otro equipo por SSH"
         value=""
         onChange={(event) => {
@@ -240,10 +241,11 @@ export function StatusBar(props: StatusBarProps) {
         />
         <button
           type="button"
+          data-action="open-folder"
           disabled={!place?.can_open}
           title={
             place?.can_open
-              ? 'Abre esta carpeta en el explorador de archivos del sistema'
+              ? 'Abre esta carpeta en el explorador de archivos del sistema (Ctrl+Shift+O)'
               : 'Esta carpeta no se puede abrir desde aquí'
           }
           // Keeps the keyboard in the terminal: the user goes on typing.

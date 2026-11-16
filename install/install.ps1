@@ -16,7 +16,7 @@
   instalar sin conexión).
 
 .EXAMPLE
-  irm https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install.ps1 | iex
+  irm https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install/install.ps1 | iex
 
 .EXAMPLE
   .\install.ps1 -Source C:\Descargas\terminal
