@@ -1,0 +1,13 @@
+[package]
+name = "term-paste"
+description = "What the clipboard holds besides text: files and pictures, handed to the terminal as paths."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+arboard = "3"
+png = "0.18"
+
+[dev-dependencies]
+tempfile = "3"

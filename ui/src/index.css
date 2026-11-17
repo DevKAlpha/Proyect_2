@@ -2,6 +2,7 @@
 @import '@xterm/xterm/css/xterm.css';
 /* The default terminal font ships with the app, so text looks the same on
    every system. Bold and italic are real faces: synthesised ones look blurry. */
+@import '@fontsource/vt323/400.css';
 @import '@fontsource/jetbrains-mono/400.css';
 @import '@fontsource/jetbrains-mono/400-italic.css';
 @import '@fontsource/jetbrains-mono/700.css';
@@ -12,9 +13,9 @@
  * the defaults in crates/config.
  */
 :root {
-  --term-bg: #14161b;
-  --term-fg: #d7dae0;
-  --term-accent: #8ab4f8;
+  --term-bg: #000000;
+  --term-fg: #ffffff;
+  --term-accent: #4d8dff;
 }
 
 /* Expose them as Tailwind colours: bg-bg, text-fg, border-accent, bg-fg/10... */
@@ -51,4 +52,23 @@ body {
  */
 .xterm .xterm-viewport {
   background-color: transparent;
+}
+
+/*
+ * The suggested rest of a command, drawn over the terminal after the cursor.
+ * One box per character, each as wide as a terminal cell, so the text lines
+ * up with what the shell will echo when the suggestion is accepted.
+ */
+.term-ghost {
+  overflow: hidden;
+  color: var(--term-fg);
+  opacity: 0.45;
+  white-space: pre;
+  pointer-events: none;
+}
+
+.term-ghost > span {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
 }

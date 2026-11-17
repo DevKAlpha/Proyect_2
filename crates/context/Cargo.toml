@@ -1,0 +1,12 @@
+[package]
+name = "term-context"
+description = "What surrounds a terminal: the folder it is in and the Git branch of that folder."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+
+[dev-dependencies]
+tempfile = "3"

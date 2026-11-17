@@ -3,7 +3,37 @@ import { describe, expect, it, vi } from 'vitest';
 // The store imports the Tauri bridge, which needs a real window.
 vi.mock('../ipc', () => ({}));
 
-const { effectiveFontSize, pickDefaultShell, useSettings } = await import('./settings');
+const {
+  SIDEBAR_WIDTH,
+  SPLIT_RATIO,
+  effectiveFontSize,
+  pickDefaultShell,
+  useSettings,
+  withinLimits,
+} = await import('./settings');
+
+describe('sizes of the parts of the window', () => {
+  it('keeps a size within its limits', () => {
+    expect(withinLimits(300, SIDEBAR_WIDTH)).toBe(300);
+    expect(withinLimits(10, SIDEBAR_WIDTH)).toBe(SIDEBAR_WIDTH.min);
+    expect(withinLimits(5000, SIDEBAR_WIDTH)).toBe(SIDEBAR_WIDTH.max);
+    expect(withinLimits(Number.NaN, SPLIT_RATIO)).toBe(SPLIT_RATIO.initial);
+  });
+
+  it('never lets a half of a split vanish', () => {
+    useSettings.getState().setSplitRatio(0.01);
+    expect(useSettings.getState().splitRatio).toBe(SPLIT_RATIO.min);
+
+    useSettings.getState().setSplitRatio(0.99);
+    expect(useSettings.getState().splitRatio).toBe(SPLIT_RATIO.max);
+  });
+
+  it('stores the sidebar width in whole pixels', () => {
+    useSettings.getState().setSidebarWidth(250.6);
+
+    expect(useSettings.getState().sidebarWidth).toBe(251);
+  });
+});
 
 describe('font zoom', () => {
   it('adds the zoom to the configured size', () => {

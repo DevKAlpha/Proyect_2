@@ -1,19 +1,22 @@
 //! IPC commands the UI can call. Each one is a thin call into a core crate.
 
+use std::ffi::OsString;
 use std::path::Path;
 
 use serde::Serialize;
 use tauri::ipc::{Channel, InvokeResponseBody, Response};
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 use term_browser::Connector;
-use term_config::{Config, Workspace};
+use term_config::{Config, Template, Workspace};
+use term_context::GitBranch;
+use term_paste::Clip;
 use term_pty::{PtySession, SpawnOptions};
-use term_shell::ShellProfile;
-use term_tools::{AgentStatus, ToolStatus};
+use term_shell::{CwdScanner, Os, ShellProfile};
+use term_tools::{AgentStatus, SshStatus, ToolStatus};
 
-use crate::state::AppState;
+use crate::state::{AppState, Whereabouts};
 
 /// Image types the background accepts. The file is handed to the web view,
 /// so only formats it draws as plain pictures are allowed.
@@ -40,9 +43,187 @@ pub fn list_agents() -> Vec<AgentStatus> {
     term_tools::detect_agents()
 }
 
+/// Whether `ssh` is installed and the machines named in the user's SSH
+/// configuration, for the "remote control" menu. Only names are read, never
+/// keys. Checked on every call: the user may have just edited the file.
+#[tauri::command]
+pub fn ssh_status() -> SshStatus {
+    let config = dirs::home_dir().map(|home| home.join(".ssh").join("config"));
+    term_tools::ssh_status(config.as_deref())
+}
+
+/// The programs a tab of the shell `shell_id` can run, as the user types
+/// them. `None` when this side cannot know: WSL keeps its programs inside
+/// Linux. Runs off the main thread, because it reads every folder on PATH.
+#[tauri::command(async)]
+pub fn list_programs(state: State<'_, AppState>, shell_id: String) -> Option<Vec<String>> {
+    let shell = state.shells.iter().find(|shell| shell.id == shell_id)?;
+    if shell.id == "wsl" {
+        return None;
+    }
+    let mut path = search_path(&state, shell)
+        .or_else(|| std::env::var_os("PATH"))
+        .unwrap_or_default();
+    // Git Bash adds its own tools to PATH when it starts.
+    if shell.id == "git-bash" {
+        path = with_folder(path, state.unix_tools.as_deref());
+    }
+    Some(term_tools::programs_on(&path))
+}
+
+/// The PATH a tab of `shell` starts with, or `None` to inherit the one of
+/// this process.
+fn search_path(state: &AppState, shell: &ShellProfile) -> Option<OsString> {
+    // A tool installed after the app started must work in the next tab.
+    let fresh = term_tools::fresh_path();
+    // Linux commands in the shells of Windows: the Unix tools of Git go
+    // last, so they never take the place of a Windows program.
+    let tools = state
+        .unix_tools
+        .as_deref()
+        .filter(|_| term_shell::is_windows_native(&shell.id) && state.config().linux_commands);
+    match tools {
+        Some(_) => {
+            let base = fresh
+                .or_else(|| std::env::var_os("PATH"))
+                .unwrap_or_default();
+            Some(with_folder(base, tools))
+        }
+        None => fresh,
+    }
+}
+
+/// `path` followed by `folder`, when there is one and it is not there yet.
+fn with_folder(path: OsString, folder: Option<&Path>) -> OsString {
+    let Some(folder) = folder else {
+        return path;
+    };
+    let mut folders: Vec<_> = std::env::split_paths(&path).collect();
+    if folders.iter().any(|existing| existing == folder) {
+        return path;
+    }
+    folders.push(folder.to_path_buf());
+    // Joining fails only for a folder name that cannot be on PATH at all.
+    std::env::join_paths(folders).unwrap_or(path)
+}
+
 #[tauri::command]
 pub fn get_config(state: State<'_, AppState>) -> Config {
     state.config()
+}
+
+/// The ready-made looks the user can apply.
+#[tauri::command]
+pub fn list_templates() -> &'static [Template] {
+    term_config::templates()
+}
+
+/// Gives the configuration file the look of template `id`.
+///
+/// The file is the user's, so the one being replaced is first copied next
+/// to it as `config.backup.toml`. Only the tables a template owns change.
+/// The watcher on the file then applies the new look, as after any edit.
+#[tauri::command]
+pub fn apply_template(state: State<'_, AppState>, id: String) -> Result<(), String> {
+    let path = state
+        .config_path()
+        .ok_or("this system has no configuration folder")?;
+    // A file that was deleted meanwhile starts again from the default one.
+    let current =
+        std::fs::read_to_string(path).unwrap_or_else(|_| term_config::DEFAULT_TOML.to_owned());
+    let applied = term_config::apply_template(&current, &id).map_err(|error| error.to_string())?;
+    std::fs::write(path.with_file_name("config.backup.toml"), &current)
+        .and_then(|()| std::fs::write(path, applied))
+        .map_err(|error| format!("could not write the configuration file: {error}"))
+}
+
+/// What a paste puts into the terminal.
+#[derive(Serialize)]
+pub struct Pasted {
+    /// Text on the clipboard, pasted as it is.
+    text: Option<String>,
+    /// Files on the clipboard, or the file a picture was just saved to.
+    paths: Vec<String>,
+}
+
+/// Pictures pasted more than this long ago are deleted at start.
+const PASTED_PICTURES_KEPT: std::time::Duration = std::time::Duration::from_secs(7 * 24 * 3600);
+
+/// Folder where pictures pasted from the clipboard are saved. It stays on
+/// this machine: a screenshot can show anything.
+fn pasted_folder() -> Option<std::path::PathBuf> {
+    Some(term_config::data_dir()?.join("pasted"))
+}
+
+/// Deletes the pasted pictures that are old. Called once at start.
+pub fn sweep_pasted_pictures() {
+    if let Some(folder) = pasted_folder() {
+        term_paste::sweep(&folder, PASTED_PICTURES_KEPT);
+    }
+}
+
+/// Reads the clipboard for a paste. Text comes back as text. Files come
+/// back as their paths, and a picture is saved to a file first: a terminal
+/// only takes characters, and programs take files by path.
+#[tauri::command(async)]
+pub fn clipboard_paste() -> Result<Pasted, String> {
+    let as_text = |path: std::path::PathBuf| path.to_string_lossy().into_owned();
+    Ok(match term_paste::read_clipboard()? {
+        Clip::Text(text) => Pasted {
+            text: Some(text),
+            paths: Vec::new(),
+        },
+        Clip::Files(files) => Pasted {
+            text: None,
+            paths: files.into_iter().map(as_text).collect(),
+        },
+        Clip::Picture(picture) => {
+            let folder = pasted_folder().ok_or("this system has no folder for application data")?;
+            let moment = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|since| since.as_millis())
+                .unwrap_or_default();
+            let path = term_paste::save_picture(&folder, &picture, &format!("imagen-{moment}"))
+                .map_err(|error| format!("the picture could not be saved: {error}"))?;
+            Pasted {
+                text: None,
+                paths: vec![as_text(path)],
+            }
+        }
+        Clip::Empty => Pasted {
+            text: None,
+            paths: Vec::new(),
+        },
+    })
+}
+
+/// Shows one of the folders of the app in the file manager of the system,
+/// so that its files are one click away: `program` (what the installer put
+/// on the machine), `config` (the configuration file and the saved
+/// projects) or `data` (history, pasted pictures).
+///
+/// The UI names a folder, never a path.
+#[tauri::command]
+pub fn open_app_folder(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    which: String,
+) -> Result<(), String> {
+    let folder = match which.as_str() {
+        "program" => app.path().resource_dir().ok(),
+        "config" => state
+            .config_path()
+            .and_then(|file| file.parent())
+            .map(Path::to_path_buf),
+        "data" => term_config::data_dir(),
+        _ => return Err(format!("unknown folder: {which}")),
+    }
+    .ok_or("this system has no such folder")?;
+    // The data folder appears with the first thing saved in it.
+    std::fs::create_dir_all(&folder).map_err(|error| error.to_string())?;
+    app.opener()
+        .open_path(folder.to_string_lossy(), None::<&str>)
+        .map_err(|error| error.to_string())
 }
 
 /// Opens the configuration file in the user's editor. Customising the
@@ -108,6 +289,24 @@ pub async fn pick_folder(app: AppHandle) -> Option<String> {
     Some(path.to_string_lossy().into_owned())
 }
 
+/// The commands the user ran before, oldest first.
+#[tauri::command]
+pub fn history_list(state: State<'_, AppState>) -> Vec<String> {
+    state.history()
+}
+
+/// Remembers a command the user just ran and returns the list as it is now.
+/// What is worth remembering is decided by `term-history`, not by the UI.
+#[tauri::command]
+pub fn history_add(state: State<'_, AppState>, command: String) -> Vec<String> {
+    state.record_command(&command)
+}
+
+#[tauri::command]
+pub fn history_clear(state: State<'_, AppState>) {
+    state.clear_history();
+}
+
 /// What the UI needs to know about the test browser.
 #[derive(Serialize)]
 pub struct BrowserStatus {
@@ -170,33 +369,218 @@ pub fn pty_spawn(
         .and_then(|project| state.project_dir(&project))
         .or_else(dirs::home_dir);
 
+    // The shell marks its prompt, so the terminal knows which text is the
+    // command being typed. Suggestions and editing by selection rest on it.
+    let marks = term_shell::prompt_marks(
+        &shell.id,
+        &|key| std::env::var(key).ok(),
+        state.shell_support.as_deref(),
+    );
+    let mut args = shell.args.clone();
+    args.extend(marks.args);
+    let mut env = marks.env;
+    if let Some(path) = search_path(&state, shell) {
+        env.push(("PATH".to_owned(), path.to_string_lossy().into_owned()));
+    }
+
+    let id = state.next_session_id();
+    let inside_wsl = shell.id == "wsl";
+    // Until the shell says otherwise, it is where it was started. A shell
+    // inside WSL starts in a folder of Linux that only it can name.
+    if let (Some(folder), false) = (&cwd, inside_wsl) {
+        state.places.set(id, Whereabouts::Local(folder.clone()));
+    }
+    let places = state.places.clone();
+    let shell_id = shell.id.clone();
+    // Git Bash names its own folders from the folder Git is installed in.
+    let git_root = state
+        .unix_tools
+        .as_deref()
+        .and_then(|tools| tools.parent()?.parent())
+        .map(Path::to_path_buf);
+    let mut scanner = CwdScanner::default();
+
     let options = SpawnOptions {
         program: shell.program.clone(),
-        args: shell.args.clone(),
+        args,
         cwd,
-        // A tool installed after the app started must work in the next tab.
-        env: term_tools::fresh_path()
-            .map(|path| ("PATH".to_owned(), path.to_string_lossy().into_owned()))
-            .into_iter()
-            .collect(),
+        env,
         cols,
         rows,
     };
-    let session = PtySession::spawn(
+    let spawned = PtySession::spawn(
         options,
         move |bytes| {
+            // With each prompt the shell says which folder it is in. That
+            // is program output: only a folder that exists on this machine
+            // is believed.
+            if let Some(reported) = scanner.feed(bytes) {
+                let place = if inside_wsl {
+                    Some(Whereabouts::Elsewhere(reported))
+                } else {
+                    term_shell::local_folder(
+                        &shell_id,
+                        &reported,
+                        Os::current(),
+                        git_root.as_deref(),
+                    )
+                    .filter(|folder| folder.is_dir())
+                    .map(Whereabouts::Local)
+                };
+                if let Some(place) = place {
+                    places.set(id, place);
+                }
+            }
             // Fails only when the tab is already gone.
             let _ = on_data.send(InvokeResponseBody::Raw(bytes.to_vec()));
         },
         move |code| {
             let _ = on_exit.send(code);
         },
-    )
-    .map_err(|error| error.to_string())?;
+    );
+    let session = match spawned {
+        Ok(session) => session,
+        Err(error) => {
+            state.places.forget(id);
+            return Err(error.to_string());
+        }
+    };
 
-    let id = state.next_session_id();
     state.sessions().insert(id, session);
     Ok(id)
+}
+
+/// Where a terminal is, for the bar under it.
+#[derive(Serialize)]
+pub struct Place {
+    /// The folder, written in full.
+    path: String,
+    /// The same folder made short for display: the home folder is `~`.
+    label: String,
+    /// Branch of the Git repository the folder belongs to, if any.
+    branch: Option<GitBranch>,
+    /// Whether `open_folder` can show this folder in the file manager.
+    can_open: bool,
+}
+
+/// The folder the shell of session `id` is in and its Git branch. `None`
+/// when nothing is known. Asked after every command, so it reads a few small
+/// files and starts no process. Off the main thread: a folder can be on a
+/// slow disk.
+#[tauri::command(async)]
+pub fn session_place(state: State<'_, AppState>, id: u32) -> Option<Place> {
+    Some(match state.places.get(id)? {
+        Whereabouts::Local(folder) => Place {
+            path: folder.to_string_lossy().into_owned(),
+            label: term_context::short_label(&folder, dirs::home_dir().as_deref()),
+            branch: term_context::git_branch(&folder),
+            can_open: true,
+        },
+        Whereabouts::Elsewhere(path) => Place {
+            label: path.clone(),
+            path,
+            branch: None,
+            can_open: false,
+        },
+    })
+}
+
+/// Shows the folder of session `id` in the file manager of the system.
+///
+/// The UI sends the id of a session, never a path: it can only open the
+/// folder a terminal is in.
+#[tauri::command]
+pub fn open_folder(app: AppHandle, state: State<'_, AppState>, id: u32) -> Result<(), String> {
+    let Some(Whereabouts::Local(folder)) = state.places.get(id) else {
+        return Err("this terminal is not in a folder of this machine".to_owned());
+    };
+    // Opening a path that is a program would run it. Only folders are opened.
+    if !folder.is_dir() {
+        return Err(format!(
+            "the folder no longer exists: {}",
+            folder.to_string_lossy()
+        ));
+    }
+    app.opener()
+        .open_path(folder.to_string_lossy(), None::<&str>)
+        .map_err(|error| error.to_string())
+}
+
+/// Longer than any real path. Text beyond this is not looked at.
+const MAX_LINK_CHARS: usize = 1024;
+/// How many pieces of one line are checked. A line has a handful of paths.
+const MAX_LINKS_PER_LINE: usize = 32;
+
+/// The file or folder that text printed in the terminal of session `id`
+/// names, if it is a local path that exists. The text is program output:
+/// `local_path` refuses everything that is not plainly on this machine.
+fn printed_path(
+    state: &AppState,
+    id: u32,
+    shell_id: &str,
+    written: &str,
+) -> Option<std::path::PathBuf> {
+    if written.len() > MAX_LINK_CHARS {
+        return None;
+    }
+    // A relative path is relative to where the shell is.
+    let folder = match state.places.get(id) {
+        Some(Whereabouts::Local(folder)) => Some(folder),
+        _ => None,
+    };
+    let git_root = state
+        .unix_tools
+        .as_deref()
+        .and_then(|tools| tools.parent()?.parent());
+    term_shell::local_path(
+        shell_id,
+        written,
+        Os::current(),
+        git_root,
+        folder.as_deref(),
+        dirs::home_dir().as_deref(),
+    )
+    .filter(|path| path.exists())
+}
+
+/// Which of `texts`, pieces of a line printed in a terminal, are paths that
+/// exist. The UI underlines only those: most words that look like a path
+/// (`v1.2`, `and/or`) are not one. Off the main thread: it touches the disk.
+#[tauri::command(async)]
+pub fn paths_exist(
+    state: State<'_, AppState>,
+    id: u32,
+    shell_id: String,
+    texts: Vec<String>,
+) -> Vec<bool> {
+    texts
+        .iter()
+        .take(MAX_LINKS_PER_LINE)
+        .map(|text| printed_path(&state, id, &shell_id, text).is_some())
+        .collect()
+}
+
+/// Shows a path printed in a terminal in the file manager of the system: a
+/// folder is opened, a file is shown selected inside its folder.
+///
+/// Nothing is ever *opened with its program* from here. The path comes from
+/// program output, and opening a file that is a program would run it.
+#[tauri::command]
+pub fn reveal_path(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: u32,
+    shell_id: String,
+    text: String,
+) -> Result<(), String> {
+    let path = printed_path(&state, id, &shell_id, &text)
+        .ok_or("that is not a file or folder of this machine")?;
+    let shown = if path.is_dir() {
+        app.opener().open_path(path.to_string_lossy(), None::<&str>)
+    } else {
+        app.opener().reveal_item_in_dir(&path)
+    };
+    shown.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -226,4 +610,5 @@ pub fn pty_resize(state: State<'_, AppState>, id: u32, cols: u16, rows: u16) -> 
 pub fn pty_kill(state: State<'_, AppState>, id: u32) {
     // Dropping the session kills the process and closes the pseudo-terminal.
     state.sessions().remove(&id);
+    state.places.forget(id);
 }

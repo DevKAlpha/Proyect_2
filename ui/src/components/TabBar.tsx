@@ -1,5 +1,5 @@
 import type { MenuGroup, MenuItem } from '../stores/menu';
-import type { Tab } from '../stores/tabs';
+import type { Split, Tab } from '../stores/tabs';
 
 interface TabBarProps {
   tabs: Tab[];
@@ -14,6 +14,10 @@ interface TabBarProps {
   onNew: () => void;
   /** Opens the tab the user chose in the menu. */
   onPick: (item: MenuItem) => void;
+  /** The two terminals shown side by side, or `null` with one on screen. */
+  split: Split | null;
+  /** Shows two terminals side by side, or goes back to one. */
+  onToggleSplit: () => void;
 }
 
 const focusRing = 'outline-none focus-visible:ring-2 focus-visible:ring-accent';
@@ -22,6 +26,7 @@ const focusRing = 'outline-none focus-visible:ring-2 focus-visible:ring-accent';
 export function TabBar(props: TabBarProps) {
   const { tabs, activeId, menu, sidebarOpen, onToggleSidebar, onSelect, onClose, onNew, onPick } =
     props;
+  const { split, onToggleSplit } = props;
   const items = menu.flatMap((group) => group.items);
 
   return (
@@ -40,11 +45,17 @@ export function TabBar(props: TabBarProps) {
       <div role="tablist" aria-label="Pestañas" className="flex min-w-0 items-stretch">
         {tabs.map((tab) => {
           const selected = tab.id === activeId;
+          // The other half of a split: on screen, without the keyboard.
+          const beside = !selected && (tab.id === split?.left || tab.id === split?.right);
           return (
             <div
               key={tab.id}
               className={`flex min-w-0 items-center border-r border-fg/10 ${
-                selected ? 'bg-fg/10 shadow-[inset_0_-2px_0_var(--term-accent)]' : 'text-fg/60'
+                selected
+                  ? 'bg-fg/10 shadow-[inset_0_-2px_0_var(--term-accent)]'
+                  : beside
+                    ? 'bg-fg/5 shadow-[inset_0_-2px_0_color-mix(in_srgb,var(--term-fg)_35%,transparent)]'
+                    : 'text-fg/60'
               }`}
             >
               <button
@@ -85,8 +96,9 @@ export function TabBar(props: TabBarProps) {
       {items.length > 1 && (
         // A native select: keyboard and screen-reader support for free.
         <select
+          data-menu="new-tab"
           aria-label="Nueva pestaña con un shell o un agente"
-          title="Nueva pestaña con un shell o un agente"
+          title="Nueva pestaña con un shell o un agente (Ctrl+Shift+M)"
           value=""
           onChange={(event) => {
             const item = items.find((candidate) => candidate.key === event.target.value);
@@ -108,6 +120,33 @@ export function TabBar(props: TabBarProps) {
           ))}
         </select>
       )}
+
+      <button
+        type="button"
+        aria-label="Vista dividida"
+        aria-pressed={split !== null}
+        title={
+          split
+            ? 'Volver a una sola terminal (Ctrl+Shift+D)'
+            : 'Ver dos terminales lado a lado (Ctrl+Shift+D)'
+        }
+        onClick={onToggleSplit}
+        className={`ml-auto grid w-9 place-items-center border-l border-fg/10 hover:bg-fg/10 hover:text-fg ${
+          split ? 'text-accent' : 'text-fg/60'
+        } ${focusRing}`}
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 16 16"
+          className="size-4"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+        >
+          <rect x="1.5" y="2.5" width="13" height="11" rx="1" />
+          <path d="M8 2.5v11" />
+        </svg>
+      </button>
     </header>
   );
 }

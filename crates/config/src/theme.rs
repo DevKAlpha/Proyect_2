@@ -40,6 +40,21 @@ struct Preset {
 
 /// The first preset is the default.
 const PRESETS: &[Preset] = &[
+    // The console of a network router: white on black, nothing else. Colour
+    // is kept for what must stand out (errors, folders, the active tab), in
+    // shades bright enough to read on black.
+    Preset {
+        name: "console",
+        background: "#000000",
+        foreground: "#ffffff",
+        cursor: "#ffffff",
+        selection: "#4d8dff66",
+        accent: "#4d8dff",
+        ansi: [
+            "#000000", "#ff5f56", "#3ecf5a", "#f2c744", "#4d8dff", "#c678dd", "#33c9dc", "#d0d0d0",
+            "#6b6b6b", "#ff8078", "#6fe085", "#ffd866", "#7aa9ff", "#d9a0ee", "#6fdcec", "#ffffff",
+        ],
+    },
     Preset {
         name: "dark",
         background: "#14161b",
@@ -190,7 +205,7 @@ mod tests {
     #[test]
     fn an_empty_table_is_the_default_preset() {
         assert_eq!(parse("").unwrap(), Theme::default());
-        assert_eq!(Theme::default().preset, "dark");
+        assert_eq!(Theme::default().preset, "console");
     }
 
     #[test]

@@ -1,0 +1,12 @@
+[package]
+name = "term-history"
+description = "The commands the user ran, remembered to suggest them again."
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+dirs = "6"
+
+[dev-dependencies]
+tempfile = "3"

@@ -1,18 +1,19 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Terminal",
+  "productName": "Terminal_Duck",
+  "mainBinaryName": "terminal-duck",
   "version": "0.1.0",
   "identifier": "com.devkalpha.terminal",
   "build": {
     "beforeDevCommand": "npm run dev",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:5183",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../ui/dist"
   },
   "app": {
     "windows": [
       {
-        "title": "Terminal",
+        "title": "Terminal_Duck",
         "width": 960,
         "height": 600,
         "minWidth": 480,
@@ -20,18 +21,42 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost"
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     }
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "deb", "rpm", "appimage", "dmg", "app"],
+    "publisher": "DevKAlpha",
+    "category": "Utility",
+    "shortDescription": "Terminal de escritorio para shells, Git y agentes de IA",
+    "longDescription": "Terminal de escritorio ligera para Windows, Linux y macOS. Trabaja con los shells de cada sistema, con Git y con agentes de IA, y ayuda a quien empieza a usar una terminal.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installMode": "perMachine",
+        "template": "windows/installer.nsi",
+        "languages": ["Spanish", "English"],
+        "displayLanguageSelector": false
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "utils"
+      },
+      "rpm": {}
+    },
+    "resources": {
+      "../install/LEEME.txt": "LEEME.txt"
+    }
   }
 }

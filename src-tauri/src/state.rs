@@ -4,11 +4,12 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Child;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
 use tauri::{AppHandle, Emitter, Manager};
 use term_browser::Browser;
 use term_config::{Config, ConfigWatcher, Workspace};
+use term_history::History;
 use term_pty::PtySession;
 use term_shell::ShellProfile;
 
@@ -17,8 +18,38 @@ const CONFIG_CHANGED: &str = "config-changed";
 /// Event sent to the UI with a message when the edited file has an error.
 const CONFIG_ERROR: &str = "config-error";
 
+/// Where the shell of a session is.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Whereabouts {
+    /// A folder of this machine.
+    Local(PathBuf),
+    /// A folder this side cannot open or look into: the shell runs inside
+    /// WSL. Kept as the shell wrote it, only to show it.
+    Elsewhere(String),
+}
+
+/// Where each session is, by session id. Shared with the threads that read
+/// shell output: that is where a shell says it changed folder.
+#[derive(Clone, Default)]
+pub struct Places(Arc<Mutex<HashMap<u32, Whereabouts>>>);
+
+impl Places {
+    pub fn set(&self, id: u32, place: Whereabouts) {
+        lock(&self.0).insert(id, place);
+    }
+
+    pub fn get(&self, id: u32) -> Option<Whereabouts> {
+        lock(&self.0).get(&id).cloned()
+    }
+
+    pub fn forget(&self, id: u32) {
+        lock(&self.0).remove(&id);
+    }
+}
+
 pub struct AppState {
     sessions: Mutex<HashMap<u32, PtySession>>,
+    pub places: Places,
     next_session_id: AtomicU32,
     config: Mutex<Config>,
     config_path: Option<PathBuf>,
@@ -28,10 +59,18 @@ pub struct AppState {
     workspace_path: Option<PathBuf>,
     /// The test browser, while this app has one running.
     browser: Mutex<Option<Child>>,
+    history: Mutex<History>,
+    history_path: Option<PathBuf>,
     /// Detected once at start: installing a shell needs a restart to show up.
     pub shells: Vec<ShellProfile>,
     /// Detected once at start, like the shells.
     pub test_browser: Option<Browser>,
+    /// The Unix tools of Git for Windows, when this machine has them.
+    pub unix_tools: Option<PathBuf>,
+    /// Folder with the start-up files some shells need to mark their
+    /// prompt. `None` when it could not be written: those shells then start
+    /// as plain terminals.
+    pub shell_support: Option<PathBuf>,
 }
 
 impl AppState {
@@ -39,6 +78,13 @@ impl AppState {
     /// A broken file must not stop the terminal from opening, so each one
     /// falls back to its default.
     pub fn load() -> Self {
+        // Earlier versions kept their data next to the program. It goes to
+        // its own folder before anything reads it.
+        if let Some(local) = term_config::local_dir() {
+            if let Err(error) = term_config::tidy_data(&local) {
+                eprintln!("old data was left where it was: {error}");
+            }
+        }
         let config_path = term_config::default_path();
         let config = config_path
             .as_deref()
@@ -63,8 +109,32 @@ impl AppState {
             })
             .unwrap_or_default();
 
+        let history_path = term_history::history_path();
+        let history = history_path
+            .as_deref()
+            .and_then(|path| match History::load(path) {
+                Ok(history) => Some(history),
+                Err(error) => {
+                    eprintln!("starting without command history: {error}");
+                    None
+                }
+            })
+            .unwrap_or_default();
+
+        let shells = term_shell::detect_shells();
+        let shell_support = term_config::data_dir()
+            .map(|folder| folder.join("shell"))
+            .filter(|folder| match term_shell::install_support(folder) {
+                Ok(()) => true,
+                Err(error) => {
+                    eprintln!("some shells will start without prompt marks: {error}");
+                    false
+                }
+            });
+
         Self {
             sessions: Mutex::default(),
+            places: Places::default(),
             next_session_id: AtomicU32::new(1),
             config: Mutex::new(config),
             config_path,
@@ -72,8 +142,12 @@ impl AppState {
             workspace: Mutex::new(workspace),
             workspace_path,
             browser: Mutex::default(),
-            shells: term_shell::detect_shells(),
+            history: Mutex::new(history),
+            history_path,
+            unix_tools: term_shell::unix_tools_dir(&shells),
+            shells,
             test_browser: term_browser::find_browser(),
+            shell_support,
         }
     }
 
@@ -111,6 +185,39 @@ impl AppState {
         lock(&self.workspace).project_dir(project)
     }
 
+    /// The remembered commands, oldest first.
+    pub fn history(&self) -> Vec<String> {
+        lock(&self.history).entries().to_vec()
+    }
+
+    /// Remembers a command the user ran, within the configured limit, and
+    /// returns the list as it is now.
+    pub fn record_command(&self, command: &str) -> Vec<String> {
+        let limit = lock(&self.config).input.history_size as usize;
+        let mut history = lock(&self.history);
+        if history.record(command, limit) {
+            self.save_history(&history);
+        }
+        history.entries().to_vec()
+    }
+
+    /// Forgets every remembered command, in memory and on disk.
+    pub fn clear_history(&self) {
+        let mut history = lock(&self.history);
+        history.clear();
+        self.save_history(&history);
+    }
+
+    /// Suggestions are a convenience: a history that cannot be written must
+    /// not get in the way of running a command.
+    fn save_history(&self, history: &History) {
+        if let Some(path) = &self.history_path {
+            if let Err(error) = history.save(path) {
+                eprintln!("command history was not saved: {error}");
+            }
+        }
+    }
+
     /// Whether the test browser started by this app is still open. The user
     /// can close its window at any time.
     pub fn browser_running(&self) -> bool {
@@ -131,9 +238,8 @@ impl AppState {
             .test_browser
             .as_ref()
             .ok_or("no Chrome, Edge or Chromium was found on this machine")?;
-        let profile = dirs::data_local_dir()
+        let profile = term_config::data_dir()
             .ok_or("this system has no folder for application data")?
-            .join("terminal")
             .join("browser-profile");
         let port = lock(&self.config).browser.port;
         let child =

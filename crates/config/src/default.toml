@@ -1,4 +1,4 @@
-# Terminal: configuración.
+# Terminal_Duck: configuración.
 # Los cambios se aplican al guardar, sin reiniciar la aplicación.
 
 # Versión del formato de este archivo. No la cambies a mano.
@@ -14,14 +14,24 @@ scrollback = 5000
 # Margen entre el texto y el borde de la ventana, en píxeles.
 padding = 8
 
+# Solo en Windows: comandos de Linux (grep, ls, cat, touch, sed, head, tail...)
+# también en PowerShell y cmd. Usa los que trae Git para Windows. Su carpeta se
+# añade al final del PATH de cada pestaña, así que no sustituye a ningún
+# programa de Windows, y el PATH del sistema no cambia.
+linux_commands = true
+
 [font]
-# Se usa la primera fuente de la lista que esté disponible. JetBrains Mono
-# viene incluida en la terminal; las demás deben estar instaladas en el equipo.
-family = "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+# Se usa la primera fuente de la lista que esté disponible. VT323 (letra de
+# píxeles, como la de una terminal antigua) y JetBrains Mono vienen incluidas
+# en la terminal; las demás deben estar instaladas en el equipo.
+family = "VT323, JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+# Para una letra moderna, cambia la línea de arriba por esta, con size = 14
+# y line_height = 1.2:
+# family = "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
 # Tamaño base. Ctrl + y Ctrl - lo cambian mientras trabajas; Ctrl 0 vuelve a este valor.
-size = 14
+size = 20
 # Alto de cada línea, como múltiplo del tamaño de la fuente.
-line_height = 1.2
+line_height = 1.0
 
 [cursor]
 # Forma: "block" (bloque), "bar" (barra) o "underline" (subrayado).
@@ -30,23 +40,24 @@ style = "block"
 blink = true
 
 [theme]
-# Tema de partida: "dark", "light" o "high-contrast".
-preset = "dark"
+# Tema de partida: "console" (blanco sobre negro, como la consola de un
+# router), "dark", "light" o "high-contrast".
+preset = "console"
 # Cualquier color de abajo sustituye al del tema. Quita el "#" inicial de la
 # línea y cambia el valor. Formato: #RRGGBB, o #RRGGBBAA con transparencia.
-# background = "#14161b"
-# foreground = "#d7dae0"
-# cursor = "#8ab4f8"
-# selection = "#8ab4f84d"
+# background = "#000000"
+# foreground = "#ffffff"
+# cursor = "#ffffff"
+# selection = "#4d8dff66"
 # Color de la pestaña activa y del foco.
-# accent = "#8ab4f8"
+# accent = "#4d8dff"
 
 # Los 16 colores que usan los programas (errores en rojo, carpetas en azul...).
 # Nombres: black, red, green, yellow, blue, magenta, cyan, white, y los mismos
 # con "bright_" delante. Solo hace falta escribir los que quieras cambiar.
 # [theme.ansi]
-# red = "#f07178"
-# bright_blue = "#9dbcff"
+# red = "#ff5f56"
+# bright_blue = "#7aa9ff"
 
 [background]
 # Imagen de fondo: ruta completa a un archivo PNG, JPG, WebP o GIF. Vacío = sin
@@ -59,6 +70,23 @@ dim = 0.75
 [browser]
 # Puerto local del navegador de pruebas que controlan los agentes de IA.
 port = 9333
+
+[input]
+# Mientras escribes un comando, sugiere en gris uno anterior que empiece igual
+# o, si no hay ninguno, un comando habitual. La flecha derecha lo acepta.
+suggestions = true
+# Línea de ayuda bajo la terminal: explica el comando que escribes, avisa si
+# es de otro sistema (por ejemplo "cls" en Linux) y propone el equivalente.
+# Ctrl + . aplica el cambio propuesto.
+hints = true
+# Cuántos comandos se recuerdan. 0 = no recordar ninguno.
+# No se recuerdan los que parecen llevar una contraseña o un token, ni los
+# que empiezan por un espacio.
+history_size = 1000
+# Tecla que, mantenida, selecciona texto del comando con las flechas:
+# "ctrl" o "shift". Supr o Retroceso borran lo seleccionado.
+# Con "ctrl", Ctrl + flecha deja de saltar por palabras mientras escribes.
+select_with = "ctrl"
 
 # Agentes de IA y herramientas propias. Aparecen en el menú de pestaña nueva
 # (la flecha junto al +). Los agentes conocidos (Claude Code, Codex, Gemini CLI,

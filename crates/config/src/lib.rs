@@ -10,9 +10,13 @@ use std::path::{Path, PathBuf};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 
+mod folders;
+mod templates;
 mod theme;
 mod workspace;
 
+pub use folders::{config_dir, data_dir, local_dir, tidy_data};
+pub use templates::{apply_template, templates, Template};
 pub use theme::{Theme, ANSI_NAMES};
 pub use workspace::{workspace_path, Project, SavedTerminal, Workspace};
 
@@ -36,6 +40,8 @@ pub enum ConfigError {
     UnsupportedVersion(u32),
     #[error("could not watch the configuration file: {0}")]
     Watch(#[from] notify::Error),
+    #[error("there is no template named `{0}`")]
+    UnknownTemplate(String),
     #[error("the saved projects could not be read or written: {0}")]
     Workspace(serde_json::Error),
 }
@@ -51,14 +57,41 @@ pub struct Config {
     pub scrollback: u32,
     /// Space between the text and the edge of the window, in pixels.
     pub padding: u16,
+    /// On Windows, lets PowerShell and cmd find the Unix tools that come
+    /// with Git for Windows (`grep`, `ls`, `cat`...).
+    pub linux_commands: bool,
     pub font: Font,
     pub cursor: Cursor,
     pub theme: Theme,
     pub background: Background,
     pub browser: Browser,
+    pub input: Input,
     /// Extra entries for the new-tab menu: any agent or tool that starts
     /// with a command.
     pub agents: Vec<CustomAgent>,
+}
+
+/// Help while typing a command.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Input {
+    /// Suggest an earlier command that starts like the one being typed, or
+    /// a common command when nothing remembered fits.
+    pub suggestions: bool,
+    /// Explain the command being typed and warn about likely mistakes, in a
+    /// line under the terminal.
+    pub hints: bool,
+    /// How many commands are remembered. Zero remembers none.
+    pub history_size: u32,
+    /// Key that, held down, selects text of the command with the arrows.
+    pub select_with: SelectWith,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SelectWith {
+    Ctrl,
+    Shift,
 }
 
 /// A command the user wants one click away, for example an AI agent that
@@ -74,7 +107,8 @@ pub struct CustomAgent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Font {
-    /// CSS font list: the first available family wins. JetBrains Mono ships
+    /// CSS font list: the first available family wins. VT323 (the pixel
+    /// letters of an old terminal) and JetBrains Mono ship
     /// with the app, so it is available on every system.
     pub family: String,
     pub size: u16,
@@ -124,11 +158,13 @@ impl Default for Config {
             default_shell: None,
             scrollback: 5000,
             padding: 8,
+            linux_commands: true,
             font: Font::default(),
             cursor: Cursor::default(),
             theme: Theme::default(),
             background: Background::default(),
             browser: Browser::default(),
+            input: Input::default(),
             agents: Vec::new(),
         }
     }
@@ -137,10 +173,11 @@ impl Default for Config {
 impl Default for Font {
     fn default() -> Self {
         Self {
-            family: "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
-                .into(),
-            size: 14,
-            line_height: 1.2,
+            family:
+                "VT323, JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+                    .into(),
+            size: 20,
+            line_height: 1.0,
         }
     }
 }
@@ -159,6 +196,17 @@ impl Default for Background {
         Self {
             image: String::new(),
             dim: 0.75,
+        }
+    }
+}
+
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            suggestions: true,
+            hints: true,
+            history_size: 1000,
+            select_with: SelectWith::Ctrl,
         }
     }
 }
@@ -197,7 +245,104 @@ pub fn load_or_create(path: &Path) -> Result<Config, ConfigError> {
         }
         fs::write(path, DEFAULT_TOML)?;
     }
-    Config::parse(&fs::read_to_string(path)?)
+    let mut text = fs::read_to_string(path)?;
+    if let Some(updated) = adopt_defaults(&text) {
+        // A file that cannot be written keeps its old look: not worth
+        // stopping the terminal for.
+        if fs::write(path, &updated).is_ok() {
+            text = updated;
+        }
+    }
+    Config::parse(&text)
+}
+
+/// The theme lines of the file older builds wrote on first run, when the
+/// default look was the dark one.
+const OLD_THEME_LINES: [&str; 2] = [
+    "# Tema de partida: \"dark\", \"light\" o \"high-contrast\".",
+    "preset = \"dark\"",
+];
+/// What replaces them: the lines of the file written today.
+const THEME_LINES: [&str; 3] = [
+    "# Tema de partida: \"console\" (blanco sobre negro, como la consola de un",
+    "# router), \"dark\", \"light\" o \"high-contrast\".",
+    "preset = \"console\"",
+];
+
+/// `text` with the default look of today, when it still carries the theme
+/// lines an older build wrote: that user never chose a theme, they were
+/// given one. `None` when there is nothing to change.
+///
+/// A file where the user picked a theme, by hand or with a template, no
+/// longer has those two lines together and is left alone. So is this file
+/// after the change: choosing "dark" later sticks.
+pub fn adopt_default_theme(text: &str) -> Option<String> {
+    replace_lines(text, &OLD_THEME_LINES, &THEME_LINES)
+}
+
+/// The font lines of the file older builds wrote on first run, when the
+/// default letter was the modern one.
+const OLD_FONT_LINES: [&str; 7] = [
+    "# Se usa la primera fuente de la lista que esté disponible. JetBrains Mono",
+    "# viene incluida en la terminal; las demás deben estar instaladas en el equipo.",
+    "family = \"JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace\"",
+    "# Tamaño base. Ctrl + y Ctrl - lo cambian mientras trabajas; Ctrl 0 vuelve a este valor.",
+    "size = 14",
+    "# Alto de cada línea, como múltiplo del tamaño de la fuente.",
+    "line_height = 1.2",
+];
+/// What replaces them: the lines of the file written today.
+const FONT_LINES: [&str; 11] = [
+    "# Se usa la primera fuente de la lista que esté disponible. VT323 (letra de",
+    "# píxeles, como la de una terminal antigua) y JetBrains Mono vienen incluidas",
+    "# en la terminal; las demás deben estar instaladas en el equipo.",
+    "family = \"VT323, JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace\"",
+    "# Para una letra moderna, cambia la línea de arriba por esta, con size = 14",
+    "# y line_height = 1.2:",
+    "# family = \"JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace\"",
+    "# Tamaño base. Ctrl + y Ctrl - lo cambian mientras trabajas; Ctrl 0 vuelve a este valor.",
+    "size = 20",
+    "# Alto de cada línea, como múltiplo del tamaño de la fuente.",
+    "line_height = 1.0",
+];
+
+/// The same for the letter: `text` with the pixel font of today, when it
+/// still carries, whole and untouched, the font lines an older build wrote.
+/// One changed value (a size the user liked) and the file is left alone.
+pub fn adopt_default_font(text: &str) -> Option<String> {
+    replace_lines(text, &OLD_FONT_LINES, &FONT_LINES)
+}
+
+/// `text` with every default an older build wrote brought up to date, or
+/// `None` when there is nothing to change.
+pub fn adopt_defaults(text: &str) -> Option<String> {
+    let theme = adopt_default_theme(text);
+    let font = adopt_default_font(theme.as_deref().unwrap_or(text));
+    font.or(theme)
+}
+
+/// `text` with the lines `old`, found together and in order, replaced by
+/// `new`. `None` when they are not there. The file keeps its line endings.
+fn replace_lines(text: &str, old: &[&str], new: &[&str]) -> Option<String> {
+    let lines: Vec<&str> = text.split_inclusive('\n').collect();
+    let at = lines.windows(old.len()).position(|found| {
+        found
+            .iter()
+            .zip(old)
+            .all(|(line, wanted)| line.trim_end() == *wanted)
+    })?;
+    let ending = if lines[at].ends_with("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    let mut updated: String = lines[..at].concat();
+    for line in new {
+        updated.push_str(line);
+        updated.push_str(ending);
+    }
+    updated.push_str(&lines[at + old.len()..].concat());
+    Some(updated)
 }
 
 /// Keeps a file watch alive. The watch stops when this value is dropped.
@@ -290,6 +435,32 @@ port = 9400
     }
 
     #[test]
+    fn reads_input_settings() {
+        let config = Config::parse(
+            "[input]
+suggestions = false
+hints = false
+history_size = 0
+select_with = 'shift'
+",
+        )
+        .unwrap();
+
+        assert!(!config.input.suggestions);
+        assert!(!config.input.hints);
+        assert_eq!(config.input.history_size, 0);
+        assert_eq!(config.input.select_with, SelectWith::Shift);
+    }
+
+    #[test]
+    fn linux_commands_can_be_turned_off() {
+        let config = Config::parse("linux_commands = false\n").unwrap();
+
+        assert!(Config::default().linux_commands);
+        assert!(!config.linux_commands);
+    }
+
+    #[test]
     fn an_unknown_cursor_style_is_an_error() {
         assert!(Config::parse(
             "[cursor]
@@ -356,6 +527,76 @@ preset = 'neon'
 
         assert_eq!(config, Config::default());
         assert_eq!(fs::read_to_string(&path).unwrap(), DEFAULT_TOML);
+    }
+
+    #[test]
+    fn a_file_with_the_old_default_theme_gets_the_new_one() {
+        let old = "padding = 8\r\n[theme]\r\n# Tema de partida: \"dark\", \"light\" o \"high-contrast\".\r\npreset = \"dark\"\r\n# background = \"#14161b\"\r\n";
+
+        let updated = adopt_default_theme(old).unwrap();
+
+        assert_eq!(Config::parse(&updated).unwrap().theme, Theme::default());
+        assert!(updated.starts_with("padding = 8\r\n[theme]\r\n# Tema de partida: \"console\""));
+        assert!(updated.ends_with("preset = \"console\"\r\n# background = \"#14161b\"\r\n"));
+        // Done once: the new file is not touched again.
+        assert_eq!(adopt_default_theme(&updated), None);
+    }
+
+    #[test]
+    fn a_file_with_the_old_default_font_gets_the_pixel_one() {
+        let old = format!("[font]\n{}\n\n[cursor]\n", OLD_FONT_LINES.join("\n"));
+
+        let updated = adopt_defaults(&old).unwrap();
+
+        assert_eq!(Config::parse(&updated).unwrap().font, Font::default());
+        assert!(updated.ends_with("line_height = 1.0\n\n[cursor]\n"));
+        assert_eq!(adopt_defaults(&updated), None);
+    }
+
+    #[test]
+    fn the_font_lines_written_today_are_the_ones_of_the_default_file() {
+        assert!(DEFAULT_TOML
+            .replace("\r\n", "\n")
+            .contains(&FONT_LINES.join("\n")));
+    }
+
+    #[test]
+    fn a_font_the_user_changed_is_kept() {
+        let old =
+            format!("[font]\n{}\n", OLD_FONT_LINES.join("\n")).replace("size = 14", "size = 16");
+
+        assert_eq!(adopt_defaults(&old), None);
+    }
+
+    #[test]
+    fn a_theme_the_user_chose_is_kept() {
+        // Chosen by hand: the comment of the old file is gone or the lines differ.
+        assert_eq!(adopt_default_theme("[theme]\npreset = \"dark\"\n"), None);
+        assert_eq!(
+            adopt_default_theme(
+                "# Tema de partida: \"dark\", \"light\" o \"high-contrast\".\npreset = \"light\"\n"
+            ),
+            None
+        );
+        assert_eq!(adopt_default_theme(DEFAULT_TOML), None);
+    }
+
+    #[test]
+    fn an_old_file_on_disk_is_updated_when_loaded() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("config.toml");
+        fs::write(
+            &path,
+            "[theme]\n# Tema de partida: \"dark\", \"light\" o \"high-contrast\".\npreset = \"dark\"\n",
+        )
+        .unwrap();
+
+        let config = load_or_create(&path).unwrap();
+
+        assert_eq!(config.theme, Theme::default());
+        assert!(fs::read_to_string(&path)
+            .unwrap()
+            .ends_with("preset = \"console\"\n"));
     }
 
     #[test]

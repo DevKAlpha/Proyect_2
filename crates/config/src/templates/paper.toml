@@ -1,0 +1,41 @@
+# ── Plantilla «Papel» ───────────────────────────────────────────────────────
+# Detallada y clara: fondo crema y tinta oscura, como una hoja impresa.
+# Demuestra que un tema claro también se puede escribir color a color.
+# Colores de la paleta Solarized (ethanschoonover.com/solarized).
+
+[font]
+family = "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+size = 15
+line_height = 1.3
+
+[cursor]
+# Subrayado: marca el sitio sin tapar la letra.
+style = "underline"
+blink = false
+
+[theme]
+# Se parte del tema claro: lo que no se escriba aquí sale de él.
+preset = "light"
+background = "#fdf6e3"
+foreground = "#4f6068"
+cursor = "#b58900"
+selection = "#b5890033"
+accent = "#b58900"
+
+[theme.ansi]
+black = "#073642"
+red = "#dc322f"
+green = "#6c7c00"
+yellow = "#a37500"
+blue = "#268bd2"
+magenta = "#d33682"
+cyan = "#1f8f85"
+white = "#93a1a1"
+bright_black = "#586e75"
+bright_red = "#cb4b16"
+bright_green = "#859900"
+bright_yellow = "#b58900"
+bright_blue = "#4a9fdc"
+bright_magenta = "#6c71c4"
+bright_cyan = "#2aa198"
+bright_white = "#eee8d5"

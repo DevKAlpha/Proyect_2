@@ -1,0 +1,46 @@
+# ── Plantilla «Nórdica» ─────────────────────────────────────────────────────
+# Detallada: define todos los colores, la fuente y el cursor. Azules fríos y
+# poco contraste entre colores, para muchas horas seguidas.
+# Colores de la paleta Nord (nordtheme.com).
+
+[font]
+family = "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+size = 14
+# Un poco más de aire entre líneas.
+line_height = 1.35
+
+[cursor]
+style = "bar"
+blink = true
+
+[theme]
+# El tema de partida solo rellena lo que no se escriba aquí. En esta
+# plantilla se escribe todo, así que no llega a verse.
+preset = "dark"
+background = "#2e3440"
+foreground = "#d8dee9"
+cursor = "#88c0d0"
+# Los dos últimos dígitos son la transparencia de la selección.
+selection = "#88c0d04d"
+# Color de la pestaña activa y del foco.
+accent = "#88c0d0"
+
+# Los 16 colores que piden los programas. Los ocho primeros son los normales
+# y los "bright_" sus versiones vivas (negrita, avisos).
+[theme.ansi]
+black = "#3b4252"
+red = "#bf616a"
+green = "#a3be8c"
+yellow = "#ebcb8b"
+blue = "#81a1c1"
+magenta = "#b48ead"
+cyan = "#88c0d0"
+white = "#e5e9f0"
+bright_black = "#616e88"
+bright_red = "#d0737d"
+bright_green = "#b5d19c"
+bright_yellow = "#f0d9a0"
+bright_blue = "#93b4d6"
+bright_magenta = "#c7a0c0"
+bright_cyan = "#8fbcbb"
+bright_white = "#eceff4"

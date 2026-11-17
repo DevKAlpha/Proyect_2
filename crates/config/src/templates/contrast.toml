@@ -1,0 +1,16 @@
+# ── Plantilla «Alto contraste» ──────────────────────────────────────────────
+# Sencilla: un tema ya hecho y una letra más grande. Pensada para leer sin
+# esfuerzo, con poca vista o con mucha luz en la pantalla.
+
+[theme]
+preset = "high-contrast"
+
+[font]
+# Solo se escribe lo que cambia: la fuente sigue siendo la de siempre.
+size = 17
+line_height = 1.3
+
+[cursor]
+style = "block"
+# Un cursor que no parpadea distrae menos.
+blink = false

@@ -1,0 +1,11 @@
+# ── Plantilla «Ámbar» ───────────────────────────────────────────────────────
+# Sencilla: parte del tema oscuro y cambia solo tres colores. Así se retoca
+# un tema sin tener que escribirlo entero.
+
+[theme]
+preset = "dark"
+# El cursor y el color de la pestaña activa, en ámbar.
+cursor = "#ffb454"
+accent = "#ffb454"
+# El texto seleccionado. Los dos últimos dígitos son la transparencia.
+selection = "#ffb45440"

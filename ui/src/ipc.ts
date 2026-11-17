@@ -6,6 +6,8 @@
  */
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { getCurrentWebview } from '@tauri-apps/api/webview';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { openUrl } from '@tauri-apps/plugin-opener';
 
 /** A shell the terminal can open in a tab. */
@@ -24,6 +26,8 @@ export interface Config {
   scrollback: number;
   /** Space between the text and the edge of the window, in pixels. */
   padding: number;
+  /** On Windows, Linux commands also in PowerShell and cmd. */
+  linux_commands: boolean;
   font: { family: string; size: number; line_height: number };
   cursor: { style: 'block' | 'bar' | 'underline'; blink: boolean };
   theme: {
@@ -39,6 +43,16 @@ export interface Config {
   /** `image` is a path, empty for none. `dim` goes from 0 (image) to 1 (colour). */
   background: { image: string; dim: number };
   browser: { port: number };
+  /** Help while typing a command. */
+  input: {
+    /** Suggest an earlier command that starts like the one being typed. */
+    suggestions: boolean;
+    /** Explain the command being typed in a line under the terminal. */
+    hints: boolean;
+    history_size: number;
+    /** Key that, held down, selects text of the command with the arrows. */
+    select_with: 'ctrl' | 'shift';
+  };
   /** Agents or tools the user added to the new-tab menu. */
   agents: { name: string; command: string }[];
 }
@@ -88,7 +102,25 @@ export interface BrowserStatus {
   connectors: { agent_id: string; command: string }[];
 }
 
+/** A machine named in the user's SSH configuration. */
+export interface SshHost {
+  /** The short name the user gave it. `ssh <name>` connects to it. */
+  name: string;
+  /** Who and where it connects to (`user@address`), or `null` when not written down. */
+  address: string | null;
+}
+
+/** What is needed to offer SSH connections to other machines. */
+export interface SshStatus {
+  /** Whether this machine has the `ssh` program. */
+  available: boolean;
+  hosts: SshHost[];
+}
+
 export const listShells = () => invoke<ShellProfile[]>('list_shells');
+
+/** Checks the machine again on every call. Reads host names only, never keys. */
+export const sshStatus = () => invoke<SshStatus>('ssh_status');
 
 /** Checks the machine again on every call. */
 export const listTools = () => invoke<ToolStatus[]>('list_tools');
@@ -96,10 +128,73 @@ export const listTools = () => invoke<ToolStatus[]>('list_tools');
 /** Checks the machine again on every call. */
 export const listAgents = () => invoke<AgentStatus[]>('list_agents');
 
+/**
+ * The programs a tab of the shell `shellId` can run, as the user types them.
+ * Resolves with `null` when they cannot be known from here (WSL keeps its
+ * programs inside Linux). Checks the machine again on every call.
+ */
+export const listPrograms = (shellId: string) =>
+  invoke<string[] | null>('list_programs', { shellId });
+
 export const getConfig = () => invoke<Config>('get_config');
+
+/** A ready-made look the user can apply: colours, font and cursor. */
+export interface Template {
+  id: string;
+  name: string;
+  /** One line about what it looks like. */
+  about: string;
+  /** Whether it writes every colour, or only a few lines. */
+  detailed: boolean;
+}
+
+export const listTemplates = () => invoke<Template[]>('list_templates');
+
+/**
+ * Gives the configuration file the look of a template. The file it replaces
+ * is kept next to it as `config.backup.toml`. The new look arrives through
+ * `onConfigChanged`, like any other edit of the file.
+ */
+export const applyTemplate = (id: string) => invoke<void>('apply_template', { id });
+
+/** What a paste puts into the terminal. */
+export interface Pasted {
+  /** Text on the clipboard, or `null` when it holds files or a picture. */
+  text: string | null;
+  /** Files on the clipboard, or the file a picture was just saved to. */
+  paths: string[];
+}
+
+/**
+ * Reads the clipboard for a paste. A picture has no path of its own, so the
+ * Rust side saves it to a file and answers with that path.
+ */
+export const clipboardPaste = () => invoke<Pasted>('clipboard_paste');
+
+/** Runs `handler` with the paths of the files the user drops on the window. */
+export const onFilesDropped = (handler: (paths: string[]) => void): Promise<UnlistenFn> =>
+  getCurrentWebview().onDragDropEvent((event) => {
+    if (event.payload.type === 'drop') handler(event.payload.paths);
+  });
 
 /** Opens the configuration file in the user's editor. */
 export const openConfigFile = () => invoke<void>('open_config_file');
+
+/**
+ * The folders of the app: `program` is what the installer put on the
+ * machine, `config` holds the configuration file and the saved projects,
+ * `data` what the app collects (history, pasted pictures).
+ */
+export type AppFolder = 'program' | 'config' | 'data';
+
+/** Shows one of the folders of the app in the file manager of the system. */
+export const openAppFolder = (which: AppFolder) => invoke<void>('open_app_folder', { which });
+
+/** Makes the window fill the screen, or takes it back to its size. */
+export async function toggleFullscreen(): Promise<void> {
+  const window = getCurrentWindow();
+  await window.setFullscreen(!(await window.isFullscreen()));
+}
 
 /** The background picture named in the configuration, as raw bytes. */
 export const readBackground = () => invoke<ArrayBuffer>('read_background');
@@ -111,6 +206,14 @@ export const saveWorkspace = (workspace: Workspace) =>
 
 /** Asks the user for a folder. Resolves with `null` when they cancel. */
 export const pickFolder = () => invoke<string | null>('pick_folder');
+
+/** The commands the user ran before, oldest first. */
+export const historyList = () => invoke<string[]>('history_list');
+
+/** Remembers a command and resolves with the list as it is now. */
+export const historyAdd = (command: string) => invoke<string[]>('history_add', { command });
+
+export const historyClear = () => invoke<void>('history_clear');
 
 export const browserStatus = () => invoke<BrowserStatus>('browser_status');
 
@@ -167,6 +270,51 @@ export const writePty = (id: number, data: string) => invoke<void>('pty_write', 
 
 export const resizePty = (id: number, cols: number, rows: number) =>
   invoke<void>('pty_resize', { id, cols, rows });
+
+/** Where a terminal is: the folder of its shell and the Git branch there. */
+export interface Place {
+  /** The folder, written in full. */
+  path: string;
+  /** The same folder made short for display: the home folder is `~`. */
+  label: string;
+  /** `null` when the folder is not inside a Git repository. */
+  branch: {
+    /** Branch name, or the start of the commit when `detached`. */
+    name: string;
+    /** No branch is checked out: the folder sits on a commit. */
+    detached: boolean;
+  } | null;
+  /** Whether `openFolder` can show the folder (not one inside WSL). */
+  can_open: boolean;
+}
+
+/**
+ * Where the shell of a session is right now. Resolves with `null` when
+ * nothing is known. Cheap: meant to be asked after every command.
+ */
+export const sessionPlace = (id: number) => invoke<Place | null>('session_place', { id });
+
+/**
+ * Shows the folder of a session in the file manager of the system. The
+ * session is named by id: this side never sends a path to open.
+ */
+export const openFolder = (id: number) => invoke<void>('open_folder', { id });
+
+/**
+ * Which of `texts`, pieces of a line printed in the terminal of a session,
+ * are paths of this machine that exist. A relative path is looked for in the
+ * folder the shell is in.
+ */
+export const pathsExist = (id: number, shellId: string, texts: string[]) =>
+  invoke<boolean[]>('paths_exist', { id, shellId, texts });
+
+/**
+ * Shows a path printed in a terminal in the file manager of the system: a
+ * folder is opened, a file is shown selected in its folder. It never opens
+ * a file with its program. Rejects when the path is not local or is gone.
+ */
+export const revealPath = (id: number, shellId: string, text: string) =>
+  invoke<void>('reveal_path', { id, shellId, text });
 
 /** Ends a session and frees it. Safe to call after the shell exited. */
 export const killPty = (id: number) => invoke<void>('pty_kill', { id });

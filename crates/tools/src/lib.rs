@@ -12,9 +12,11 @@ use serde::Serialize;
 
 mod agents;
 mod path;
+mod ssh;
 
 pub use agents::{detect_agents, detect_agents_with, AgentStatus};
-pub use path::fresh_path;
+pub use path::{fresh_path, programs_on};
+pub use ssh::{parse_hosts, ssh_status, SshHost, SshStatus};
 
 /// A tool and whether this machine has it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
