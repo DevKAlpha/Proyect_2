@@ -8,7 +8,7 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 
 ## Índice
 
-- **Usarla:** [Instalar](#instalar) · [Qué hace](#qué-hace) · [Atajos](#atajos) · [Proyectos](#proyectos) · [Espacio de trabajo](#espacio-de-trabajo) · [Mientras escribes un comando](#mientras-escribes-un-comando) · [Dónde estás](#dónde-estás) · [Control remoto](#control-remoto) · [Comandos de Linux](#comandos-de-linux) · [Enlaces y rutas](#enlaces-y-rutas) · [Pegar archivos e imágenes](#pegar-archivos-e-imágenes) · [Agentes de IA](#agentes-de-ia) · [Navegador de pruebas](#navegador-de-pruebas) · [Personalizar](#personalizar) · [Dónde están los archivos](#dónde-están-los-archivos)
+- **Usarla:** [Instalar](#instalar) · [Qué hace](#qué-hace) · [Atajos](#atajos) · [Proyectos](#proyectos) · [Espacio de trabajo](#espacio-de-trabajo) · [Mientras escribes un comando](#mientras-escribes-un-comando) · [Mientras un comando trabaja](#mientras-un-comando-trabaja) · [Dónde estás](#dónde-estás) · [Control remoto](#control-remoto) · [Comandos de Linux](#comandos-de-linux) · [Enlaces y rutas](#enlaces-y-rutas) · [Pegar archivos e imágenes](#pegar-archivos-e-imágenes) · [Agentes de IA](#agentes-de-ia) · [Navegador de pruebas](#navegador-de-pruebas) · [Personalizar](#personalizar) · [Dónde están los archivos](#dónde-están-los-archivos)
 - **Por dentro:** [Arquitectura](#arquitectura) · [Seguridad](#seguridad) · [Estructura del repositorio](#estructura-del-repositorio)
 - **Contribuir:** [Ramas](#ramas) · [Desarrollo](#desarrollo) · [Pruebas](#pruebas)
 
@@ -72,6 +72,7 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 - Agentes de IA: detecta Claude Code, Codex, Gemini CLI, OpenCode y GitHub Copilot CLI. Los instalados se abren desde el menú de pestaña nueva; los que faltan se instalan desde ahí. Puedes añadir cualquier otro en la configuración.
 - Navegador de pruebas: un navegador aislado que los agentes controlan para probar aplicaciones web.
 - Recuerda tus comandos y los sugiere mientras escribes. Sin historial, sugiere comandos habituales.
+- Mientras un comando largo trabaja, un patito nada en la línea de ayuda con el tiempo transcurrido, como el indicador de Claude Code.
 - Una línea de ayuda explica el comando que escribes, avisa si es de otro sistema o tiene una errata y propone el cambio.
 - Comandos de Linux (`grep`, `ls`, `cat`, `touch`...) también en PowerShell y cmd.
 - Una barra bajo cada terminal muestra la carpeta en la que estás y su rama de Git, y abre la carpeta en el explorador de archivos.
@@ -211,6 +212,24 @@ select_with = "shift"
 - `history_size = 0` en `[input]` desactiva el recuerdo; `suggestions = false` oculta las sugerencias; `hints = false` quita la línea de ayuda.
 
 El filtro de credenciales reduce el riesgo, no lo elimina: un secreto escrito de otra forma sí se guardaría.
+
+## Mientras un comando trabaja
+
+Un comando que tarda deja la pantalla quieta, y una pantalla quieta parece colgada. Si un comando sigue en marcha pasado un segundo, la línea de ayuda muestra un patito con chistera que nada sobre olas, una palabra de lo que hace (`Remando`, `Chapoteando`, `Buceando`…) y el tiempo transcurrido:
+
+```
+🦆 Remando… 1 min 05 s · Ctrl+C lo detiene
+```
+
+- **Cuándo empieza.** Al pulsar `Enter` en el prompt con un comando escrito. Los comandos que acaban antes de un segundo no lo muestran: solo parpadearía.
+- **Cuándo acaba.** Cuando el shell vuelve a mostrar su prompt, que es la señal de que el comando terminó (las marcas de prompt, ver [Arquitectura](#marcas-de-prompt)). También con `Ctrl+C`.
+- **Cuándo no sale.** Con programas que hablan contigo en lugar de trabajar solos: editores y paginadores (`vim`, `nano`, `less`, `man`, `top`), agentes de IA (`claude`, `codex`, `gemini`, `opencode`, `copilot`, `aider`), conexiones remotas (`ssh`, `telnet`), consolas abiertas sin argumentos (`python`, `node`, `pwsh`, `psql`…) y contenedores con terminal (`docker run -it`). Tampoco con programas que ocupan la pantalla entera.
+- **Si escribes en el programa** (responder a una pregunta, una contraseña), el patito se va hasta el próximo comando: el programa está hablando contigo.
+- **Colores.** Los del patito del rótulo, sacados de la plantilla en uso; el agua usa el cian de la plantilla.
+- **Movimiento.** Un fotograma cada 140 ms. Si el sistema pide reducir el movimiento, nada a un tercio de esa velocidad: sigue moviéndose porque su trabajo es mostrar que algo pasa.
+- Vive en la línea de ayuda: con `hints = false` en `[input]` no aparece.
+
+Un programa que espera tu respuesta sin que hayas escrito nada todavía (una pregunta de `Read-Host`, por ejemplo) se ve igual que uno que trabaja: el patito sigue nadando hasta que escribes.
 
 ## Dónde estás
 
@@ -558,6 +577,7 @@ Los datos están en la carpeta local del equipo, no en la que se sincroniza con 
 | `stores/pathLinks`, `components/pathLinks`                                           | Rutas impresas convertidas en enlaces                                                                                                                            |
 | `stores/remote`                                                                      | El único sitio que construye un comando `ssh`, con el nombre de equipo validado                                                                                  |
 | `stores/shortcuts`                                                                   | Una tabla decide qué tecla es un atajo y alimenta el panel de `F1`                                                                                               |
+| `stores/working`, `components/DuckWorking`                                           | El patito que nada mientras un comando trabaja: cuándo sale, sus fotogramas y el tiempo                                                                          |
 | `stores/banner`, `components/Welcome`                                                | El rótulo: rejillas de puntos convertidas en formas                                                                                                              |
 | `components/TerminalPane`                                                            | Una pestaña: una pantalla de xterm.js unida a una sesión                                                                                                         |
 | `components/Sidebar`, `SidebarIcon`                                                  | Barra lateral e iconos propios                                                                                                                                   |
@@ -645,10 +665,10 @@ cargo test --workspace
 
 ## Pruebas
 
-La lógica vive en funciones puras, y cada una tiene sus pruebas: 220 de la interfaz (Vitest) y 156 de Rust.
+La lógica vive en funciones puras, y cada una tiene sus pruebas: 230 de la interfaz (Vitest) y 156 de Rust.
 
 - **Rust:** cada crate se prueba sin ventana. `crates/pty` arranca shells de verdad y responde a ConPTY como lo haría una terminal. `crates/shell` prueba las reglas de rutas con casos de Windows y de Unix en cualquier sistema. `crates/config` prueba que el archivo por defecto coincide con los valores por defecto, la vigilancia del archivo y las plantillas.
-- **Interfaz:** las pruebas cubren los `stores`: la línea que se escribe, la ayuda, el pegado, las comillas de cada shell, los enlaces, los atajos, las pestañas y el rótulo.
+- **Interfaz:** las pruebas cubren los `stores`: la línea que se escribe, la ayuda, el pegado, las comillas de cada shell, los enlaces, los atajos, las pestañas, el rótulo y los fotogramas del patito que nada.
 - **Linux sin equipo Linux:** `cargo clippy` y `cargo test` se pasan también en un contenedor de Debian, y los paquetes `.deb` y `.rpm` se instalan en contenedores limpios de Debian y Fedora.
 - **Estilo:** Prettier, ESLint y `tsc` en modo estricto para la interfaz; `rustfmt` y `clippy` con los avisos como errores para Rust.
 
