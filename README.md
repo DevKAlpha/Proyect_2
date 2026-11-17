@@ -393,6 +393,32 @@ La terminal usa tres carpetas, cada una con un trabajo. El menú «Carpetas» de
 - Desinstalar no toca ni la configuración ni los datos.
 - Las versiones anteriores guardaban los datos sueltos junto al programa. Al abrir esta versión se mueven solos a `data`.
 
+## Ramas
+
+Cada parte de la terminal tiene su rama. Un cambio se hace en la rama de su área, se integra en `develop` y, cuando la versión está probada, pasa a `main`.
+
+| Rama            | Área                                                                   | Carpetas                                                                            |
+| --------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `main`          | Versiones publicadas. Solo recibe lo ya probado en `develop`           |                                                                                     |
+| `develop`       | Integración: aquí se juntan las áreas y se prueba el conjunto          |                                                                                     |
+| `area/terminal` | Sesiones, shells y comandos entre la ventana y el sistema              | `crates/pty`, `crates/shell`, `src-tauri/src`                                       |
+| `area/config`   | Configuración, temas, plantillas y carpetas de la app                  | `crates/config`                                                                     |
+| `area/assist`   | Ayuda al escribir: historial, sugerencias y guía de comandos           | `crates/history`, `ui/src/stores` (`guide`, `inputLine`, `history`), `promptAssist` |
+| `area/tools`    | Herramientas y agentes, SSH, navegador de pruebas, rama de Git, pegado | `crates/tools`, `crates/browser`, `crates/context`, `crates/paste`                  |
+| `area/ui`       | Interfaz: pestañas, proyectos, barra lateral, rótulo, atajos           | `ui/src`                                                                            |
+| `area/install`  | Instaladores, guiones de instalación e iconos                          | `install`, `src-tauri/tauri.conf.json`, `src-tauri/windows`, `src-tauri/icons`      |
+| `area/docs`     | Documentación                                                          | `README.md`                                                                         |
+
+Cómo se trabaja:
+
+1. Parte de lo último integrado: `git switch area/<área>` y `git merge develop`.
+2. Haz el cambio con sus tests y pasa las comprobaciones de abajo.
+3. Un commit por cambio, con [Conventional Commits](https://www.conventionalcommits.org/) y el área entre paréntesis: `feat(ui): ...`, `fix(config): ...`, `docs: ...`.
+4. Integra en `develop` con `git merge --no-ff area/<área>`, para que cada área quede a la vista en el historial.
+5. `main` solo se mueve al publicar una versión, con su etiqueta (`v0.1.0`).
+
+Un cambio que toca varias áreas va en la rama de la principal y nombra las demás en el commit.
+
 ## Desarrollo
 
 Requisitos: [Node.js](https://nodejs.org) 20 o superior, [Rust](https://rustup.rs) estable y los [requisitos de Tauri](https://tauri.app/start/prerequisites/) para tu sistema (en Windows, las Build Tools de Visual Studio con C++).
