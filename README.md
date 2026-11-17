@@ -6,6 +6,12 @@ Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar
 
 > Las carpetas de configuración y de datos se siguen llamando `terminal`, y el identificador de la app sigue siendo `com.devkalpha.terminal`: así nada de lo que ya tenías se pierde con el cambio de nombre.
 
+## Índice
+
+- **Usarla:** [Instalar](#instalar) · [Qué hace](#qué-hace) · [Atajos](#atajos) · [Proyectos](#proyectos) · [Espacio de trabajo](#espacio-de-trabajo) · [Mientras escribes un comando](#mientras-escribes-un-comando) · [Dónde estás](#dónde-estás) · [Control remoto](#control-remoto) · [Comandos de Linux](#comandos-de-linux) · [Enlaces y rutas](#enlaces-y-rutas) · [Pegar archivos e imágenes](#pegar-archivos-e-imágenes) · [Agentes de IA](#agentes-de-ia) · [Navegador de pruebas](#navegador-de-pruebas) · [Personalizar](#personalizar) · [Dónde están los archivos](#dónde-están-los-archivos)
+- **Por dentro:** [Arquitectura](#arquitectura) · [Seguridad](#seguridad) · [Estructura del repositorio](#estructura-del-repositorio)
+- **Contribuir:** [Ramas](#ramas) · [Desarrollo](#desarrollo) · [Pruebas](#pruebas)
+
 ## Instalar
 
 Hay dos formas en cada sistema: con un comando o con un instalador. Las dos instalan lo mismo, completo: la aplicación y lo que necesita para funcionar. Los archivos están en la página de [versiones](https://github.com/DevKAlpha/Proyect_2/releases/latest).
@@ -81,7 +87,7 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 - Atajos de teclado para todo: terminales, proyectos, vista dividida, menús y pantalla completa. `F1` los muestra.
 - Archivos ordenados en tres carpetas (programa, configuración y datos), a un clic desde el menú «Carpetas».
 - Copiar y pegar. Lo pegado entra sin caracteres de control: un texto copiado de una web no puede ejecutar nada por su cuenta.
-- El patito y el nombre, dibujados con caracteres de terminal sobre la terminal y siempre a la vista. Toman los colores de la plantilla que uses.
+- El rótulo `TERMINAL_DUCK` con su patito, hecho de puntos cuadrados como los bloques de una terminal, siempre a la vista sobre la terminal. Toma los colores de la plantilla que uses.
 
 ## Atajos
 
@@ -393,6 +399,202 @@ La terminal usa tres carpetas, cada una con un trabajo. El menú «Carpetas» de
 - Desinstalar no toca ni la configuración ni los datos.
 - Las versiones anteriores guardaban los datos sueltos junto al programa. Al abrir esta versión se mueven solos a `data`.
 
+## Arquitectura
+
+Terminal_Duck es una aplicación [Tauri 2](https://tauri.app): un proceso nativo escrito en Rust que posee los shells, y una ventana web (WebView2 en Windows, WebKitGTK en Linux, WKWebView en macOS) que dibuja. La ventana nunca toca el sistema por su cuenta: todo pasa por un conjunto cerrado de comandos.
+
+### Capas
+
+```
+┌──────────────────────────────── ventana (ui/) ────────────────────────────────┐
+│ React + TypeScript + Tailwind                                                │
+│ xterm.js (WebGL)  ·  stores Zustand  ·  rótulo, barra lateral, barras        │
+└───────────────▲──────────────────────────────────────────────┬───────────────┘
+                │ eventos y canales binarios                   │ invoke (IPC)
+┌───────────────┴──────────────────────────────────────────────▼───────────────┐
+│ src-tauri: comandos IPC, estado compartido, vigilancia de la configuración   │
+├───────────────────────────────────────────────────────────────────────────────┤
+│ crates/pty    crates/shell    crates/config    crates/history                │
+│ crates/tools  crates/browser  crates/context   crates/paste                  │
+└───────────────▲──────────────────────────────────────────────┬───────────────┘
+                │ bytes de salida                              │ bytes de entrada
+        pseudo-terminal del sistema (ConPTY · forkpty)  →  shell  →  programas
+```
+
+- **`crates/`** contiene la lógica. Ningún crate conoce la ventana: reciben datos y devuelven datos, así que se prueban sin abrir nada.
+- **`src-tauri/`** solo conecta: posee la ventana, expone los crates como comandos y reenvía sus eventos.
+- **`ui/`** dibuja y decide qué pedir. La lógica de la interfaz vive en funciones puras con tests (`ui/src/stores`); los componentes solo pintan.
+
+### Qué hace cada crate
+
+| Crate            | Responsabilidad                                                                                                                                                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `crates/pty`     | Una sesión = un proceso unido a un pseudo-terminal (`portable-pty`: ConPTY en Windows, forkpty en Unix). Entrega la salida en bloques de hasta 8192 bytes por una función de retorno. Soltar la sesión mata el proceso.       |
+| `crates/shell`   | Detecta los shells instalados, con su ruta absoluta. Genera las marcas de prompt de cada shell (módulo `integration`). Lee la carpeta que el shell anuncia y convierte texto impreso en rutas locales fiables (módulo `cwd`). |
+| `crates/config`  | `config.toml`: lectura, valores por defecto, vigilancia en caliente y versión de formato. Temas (`theme`), plantillas (`templates`), proyectos guardados (`workspace`) y carpetas de la app (`folders`).                      |
+| `crates/history` | Comandos recordados en un archivo de texto, uno por línea. Decide qué no se guarda: credenciales, comandos que empiezan por espacio, entradas de varias líneas o de más de 2000 caracteres.                                   |
+| `crates/tools`   | Informa de qué hay instalado (Node.js, Docker, agentes de IA, `ssh`) y del comando que instala lo que falta. Nunca ejecuta un instalador. Lee los nombres de equipo de `~/.ssh/config` (módulo `ssh`), nunca las claves.      |
+| `crates/browser` | Encuentra Chrome, Edge o Chromium y lo arranca aislado, con perfil propio, escuchando solo en `127.0.0.1`.                                                                                                                    |
+| `crates/context` | La rama de Git de una carpeta, leída de los archivos de `.git` sin arrancar `git`: se consulta tras cada comando.                                                                                                             |
+| `crates/paste`   | Lee el portapapeles: texto, archivos copiados o una imagen, que guarda como PNG para poder pegarla como ruta. Borra las imágenes de más de 7 días.                                                                            |
+
+### Recorrido de una tecla y de la salida
+
+1. xterm.js traduce la tecla a bytes (`onData`). Antes de enviarlos, `promptAssist` lee de la pantalla la línea que se está escribiendo.
+2. La ventana llama a `pty_write` con el id de la sesión. El proceso nativo escribe los bytes en el pseudo-terminal.
+3. El shell responde. Un hilo por sesión lee el pseudo-terminal y pasa cada bloque por `CwdScanner`, que busca el anuncio de carpeta.
+4. El bloque viaja a la ventana por un canal binario, sin pasar por JSON: un bloque puede cortar un carácter UTF-8 o una secuencia de escape por la mitad, y xterm.js los recompone.
+5. xterm.js dibuja con WebGL. Si el equipo no tiene WebGL2, o la GPU pierde el contexto, sigue con su dibujo por DOM.
+6. Otro hilo espera el fin del proceso y avisa por un segundo canal: la pestaña se cierra sola.
+
+En Windows, ConPTY pregunta la posición del cursor al arrancar (`ESC [ 6 n`) y el shell no empieza hasta recibir respuesta. xterm.js responde; lo que se teclea antes de conocer el id de sesión se guarda y se envía en orden.
+
+Cada sesión arranca con `TERM=xterm-256color` y `COLORTERM=truecolor`.
+
+### Marcas de prompt
+
+Una terminal solo ve caracteres: no distingue el comando que escribes de la salida que lo rodea. Las sugerencias, la línea de ayuda y el borrado por selección necesitan saberlo. Cada shell se arranca de modo que imprima una marca invisible tras su prompt (`OSC 133 ; B`, la que usan otras terminales) y anuncie su carpeta. Nada se escribe en tus archivos de configuración de shell: todo va en argumentos y variables del proceso que se arranca.
+
+| Shell                          | Cómo se añade la marca                                                                                                 | Cómo anuncia la carpeta |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| PowerShell, Windows PowerShell | `-NoExit -Command` con una función que envuelve tu `prompt` y lo llama primero                                         | `OSC 9 ; 9 ; ruta`      |
+| cmd                            | Variable `PROMPT`, con `$E` como carácter de escape                                                                    | `OSC 9 ; 9 ; $P`        |
+| bash, Git Bash                 | Variable `PROMPT_COMMAND`: añade la marca al final de `PS1` si no está                                                 | `OSC 7 ; file://…`      |
+| WSL                            | Lo mismo que bash, cruzando a Linux con `WSLENV` (`PROMPT_COMMAND/u`)                                                  | `OSC 7 ; file://…`      |
+| zsh                            | `ZDOTDIR` apunta a un `.zshenv` propio en la carpeta de datos, que devuelve a zsh su carpeta real y carga tus archivos | `OSC 7 ; file://…`      |
+| fish                           | `--init-command`: envuelve `fish_prompt` y atenúa la sugerencia propia de fish                                         | `OSC 7 ; file://…`      |
+
+Un shell sin marcas (`sh`, o un prompt que sustituye al nuestro) funciona como terminal normal, sin ayuda al escribir.
+
+### Lo que imprime un programa no es de fiar
+
+Cualquier programa, o un archivo mostrado con `cat`, puede imprimir secuencias de escape. Por eso:
+
+- **Carpeta anunciada** (`local_folder`): solo se acepta una ruta local con letra de unidad (o absoluta en Unix). Nunca una ruta de red (`\\equipo\recurso`). Además debe existir. Dentro de WSL la ruta solo se muestra: no se abre.
+- **Rutas impresas** (`local_path`): absolutas, relativas a la carpeta del shell, `~` o `file://`. Se descartan los textos de más de 1024 caracteres o con caracteres de control, y solo se subrayan las rutas que existen. Como mucho se comprueban 32 por línea.
+- **Abrir**: una carpeta se abre en el explorador y un archivo se muestra seleccionado en su carpeta. Nunca se abre un archivo con su programa: si fuera un ejecutable, se ejecutaría.
+- **Enlaces web**: solo `http` y `https`, y con `Ctrl` pulsado. La restricción está en los permisos de la ventana, no solo en la interfaz.
+
+### Comandos IPC
+
+La ventana solo puede llamar a estos comandos. La regla común: envía identificadores, nunca rutas ni programas.
+
+| Comando                                           | Qué hace                                                  | Qué impide                                                                               |
+| ------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `list_shells`, `list_tools`, `list_agents`        | Lo detectado en el equipo                                 |                                                                                          |
+| `list_programs(shell_id)`                         | Programas del `PATH` de ese shell, para la línea de ayuda |                                                                                          |
+| `pty_spawn(shell_id, project_id, cols, rows)`     | Arranca un shell y devuelve el id de sesión               | Solo shells detectados, y solo en la carpeta de un proyecto registrado o en la de inicio |
+| `pty_write`, `pty_resize`, `pty_kill`             | Entrada, tamaño y fin de una sesión                       | Una sesión que ya no existe se ignora                                                    |
+| `session_place(id)`                               | Carpeta y rama de Git de la sesión                        |                                                                                          |
+| `open_folder(id)`                                 | Abre en el explorador la carpeta de la sesión             | Solo carpetas que existen; nunca un archivo                                              |
+| `paths_exist`, `reveal_path`                      | Enlaces de rutas impresas                                 | Las reglas de `local_path`                                                               |
+| `get_config`, `open_config_file`                  | La configuración y su archivo                             |                                                                                          |
+| `list_templates`, `apply_template(id)`            | Plantillas de aspecto                                     | Copia antes el archivo como `config.backup.toml`                                         |
+| `read_background`                                 | Los bytes de la imagen de fondo                           | Solo el archivo de tu configuración: PNG, JPG, WebP o GIF, hasta 25 MB                   |
+| `load_workspace`, `save_workspace`, `pick_folder` | Proyectos guardados y diálogo de carpeta del sistema      |                                                                                          |
+| `history_list`, `history_add`, `history_clear`    | Comandos recordados                                       | El filtro de `crates/history`                                                            |
+| `clipboard_paste`                                 | Texto, archivos o imagen del portapapeles                 |                                                                                          |
+| `ssh_status`                                      | Si hay `ssh` y los equipos de `~/.ssh/config`             | Lee nombres, nunca claves; como mucho 1 MB                                               |
+| `browser_status`, `browser_open`, `browser_close` | Navegador de pruebas                                      | Solo arranca cuando lo pides; no arranca si el puerto está ocupado                       |
+| `open_app_folder(which)`                          | Abre la carpeta de programa, configuración o datos        | Un nombre de tres posibles, nunca una ruta                                               |
+
+Eventos hacia la ventana: `config-changed`, con la configuración nueva tras guardar el archivo, y `config-error`, con el motivo si el archivo tiene un error.
+
+### Configuración
+
+Un archivo TOML legible. Todas las claves son opcionales: la que falta toma su valor por defecto, y una clave desconocida se ignora. Se vigila la carpeta, no el archivo, porque muchos editores sustituyen el archivo al guardar. Un archivo con error no se aplica: se conserva la configuración anterior y la ventana muestra el motivo.
+
+| Clave                        | Por defecto                | Qué controla                                                               |
+| ---------------------------- | -------------------------- | -------------------------------------------------------------------------- |
+| `version`                    | `1`                        | Formato del archivo. Un archivo de versión mayor se rechaza con un aviso   |
+| `default_shell`              | el primero detectado       | `pwsh`, `powershell`, `cmd`, `git-bash`, `wsl`, `bash`, `zsh` o `fish`     |
+| `scrollback`                 | `5000`                     | Líneas de historial por pestaña                                            |
+| `padding`                    | `8`                        | Margen entre el texto y el borde, en píxeles                               |
+| `linux_commands`             | `true`                     | En Windows, añade las herramientas Unix de Git al final del `PATH`         |
+| `[font] family`              | `VT323, JetBrains Mono, …` | Lista CSS: gana la primera fuente disponible                               |
+| `[font] size`                | `20`                       | Tamaño base. El zoom se suma sin guardarse (de 6 a 48)                     |
+| `[font] line_height`         | `1.0`                      | Alto de línea, como múltiplo del tamaño                                    |
+| `[cursor] style`, `blink`    | `block`, `true`            | `block`, `bar` o `underline`                                               |
+| `[theme] preset`             | `console`                  | `console`, `dark`, `light` o `high-contrast`                               |
+| `[theme]` colores            | los del tema               | `background`, `foreground`, `cursor`, `selection`, `accent`                |
+| `[theme.ansi]`               | los del tema               | Los 16 colores numerados: `black`…`white` y `bright_black`…`bright_white`  |
+| `[background] image`, `dim`  | `""`, `0.75`               | Imagen de fondo y cuánto la tapa el color de fondo                         |
+| `[browser] port`             | `9333`                     | Puerto local del navegador de pruebas                                      |
+| `[input] suggestions`        | `true`                     | Sugerencia en gris tras el cursor                                          |
+| `[input] hints`              | `true`                     | Línea de ayuda bajo la terminal                                            |
+| `[input] history_size`       | `1000`                     | Comandos recordados. `0` no recuerda ninguno                               |
+| `[input] select_with`        | `ctrl`                     | Tecla que, con las flechas, selecciona texto del comando: `ctrl` o `shift` |
+| `[[agents]] name`, `command` | ninguno                    | Entradas propias del menú de pestaña nueva                                 |
+
+Un tema parte de un `preset` y cualquier color escrito lo sustituye. xterm.js sube el contraste del texto hasta 4,5:1 (WCAG AA) cuando un programa imprime gris sobre el fondo.
+
+Si tu archivo conserva, sin tocar, las líneas de tema o de fuente que escribió una versión anterior, se actualizan una vez al abrir. Un valor que hayas cambiado no se toca.
+
+### Qué se guarda en disco
+
+| Archivo                  | Formato | Contenido                                                               |
+| ------------------------ | ------- | ----------------------------------------------------------------------- |
+| `config.toml`            | TOML    | Tu configuración                                                        |
+| `config.backup.toml`     | TOML    | La configuración anterior a la última plantilla aplicada                |
+| `workspace.json`         | JSON    | Proyectos: nombre, carpeta y qué ejecuta cada terminal. Nunca su salida |
+| `data/history.txt`       | Texto   | Comandos recordados, uno por línea, el más antiguo primero              |
+| `data/pasted/`           | PNG     | Imágenes pegadas. Se borran a los 7 días                                |
+| `data/shell/zsh/.zshenv` | Texto   | Archivo de arranque para zsh. Se reescribe solo si cambia               |
+| `data/browser-profile/`  | —       | Perfil del navegador de pruebas                                         |
+
+Los datos están en la carpeta local del equipo, no en la que se sincroniza con la cuenta: el historial puede contener lo que el filtro no vio. El ancho de la barra lateral, el reparto de la vista dividida y si la barra está oculta se guardan en el almacenamiento de la ventana.
+
+### La interfaz por dentro
+
+| Módulo (`ui/src`)                                                                    | Papel                                                                                                                                                            |
+| ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ipc.ts`                                                                             | Las únicas llamadas al proceso nativo, con sus tipos                                                                                                             |
+| `stores/tabs`                                                                        | Pestañas, proyectos y vista dividida; qué se guarda y qué no                                                                                                     |
+| `stores/settings`                                                                    | Configuración cargada, zoom, tamaños de la ventana, plantillas                                                                                                   |
+| `stores/inputLine`, `promptAssist`                                                   | Leen de la pantalla la línea que se escribe, a partir de la marca del prompt                                                                                     |
+| `stores/guide`, `guideData`                                                          | Línea de ayuda: qué hace un comando, si es de otro sistema, erratas (dos letras cambiadas de sitio, o una letra de diferencia en nombres largos) y su corrección |
+| `stores/history`                                                                     | Sugerencia: el comando recordado más reciente que empieza igual                                                                                                  |
+| `stores/paste`                                                                       | Qué entra al pegar: limpieza de caracteres de control, confirmación de varias líneas, comillas de cada shell                                                     |
+| `stores/pathLinks`, `components/pathLinks`                                           | Rutas impresas convertidas en enlaces                                                                                                                            |
+| `stores/remote`                                                                      | El único sitio que construye un comando `ssh`, con el nombre de equipo validado                                                                                  |
+| `stores/shortcuts`                                                                   | Una tabla decide qué tecla es un atajo y alimenta el panel de `F1`                                                                                               |
+| `stores/banner`, `components/Welcome`                                                | El rótulo: rejillas de puntos convertidas en formas                                                                                                              |
+| `components/TerminalPane`                                                            | Una pestaña: una pantalla de xterm.js unida a una sesión                                                                                                         |
+| `components/Sidebar`, `SidebarIcon`                                                  | Barra lateral e iconos propios                                                                                                                                   |
+| `components/StatusBar`, `HintBar`, `TabBar`, `ToolsBar`, `Divider`, `ShortcutsPanel` | Las demás piezas de la ventana                                                                                                                                   |
+
+Las pestañas inactivas siguen montadas y ocultas: su pantalla y su historial sobreviven al cambio de pestaña, y el shell vive lo mismo que la pestaña. xterm.js usa las tablas de anchura de Unicode 11, para que emojis y caracteres anchos no desplacen el cursor en las pantallas de los agentes.
+
+`Shift+Enter` se envía como `ESC` + `Enter`: es lo que los agentes de IA leen como «línea nueva, no enviar todavía».
+
+### Instaladores
+
+| Sistema | Paquete                         | Cómo está hecho                                                                                                                             |
+| ------- | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows | `terminal-duck-setup-x64.exe`   | NSIS, para todo el equipo, con el instalador de WebView2 dentro. La plantilla es la de Tauri con una línea cambiada: la carpeta por defecto |
+| Debian  | `terminal-duck-amd64.deb`       | Declara WebKitGTK y GTK como dependencias; `apt` las instala                                                                                |
+| Fedora  | `terminal-duck-x86_64.rpm`      | Lo mismo, con `dnf`, `yum` o `zypper`                                                                                                       |
+| Otras   | `terminal-duck-x86_64.AppImage` | Lleva dentro todo lo que necesita; no pide permisos de root                                                                                 |
+
+Cada versión se publica con `SHA256SUMS`. Los guiones `install/install.ps1` e `install/install.sh` descargan solo por `https`, comparan la suma antes de ejecutar nada y aceptan una carpeta local como origen para instalar sin conexión.
+
+## Seguridad
+
+Una terminal ejecuta lo que se le pide; lo que debe impedir es que algo se ejecute sin que tú lo pidas.
+
+- **La ventana no carga nada de fuera.** Solo archivos propios, con una política de contenido estricta: sin `object`, sin `base`, sin formularios y sin marcos. Las herramientas de desarrollo del navegador no existen en la versión instalada.
+- **Permisos mínimos.** La ventana puede usar el portapapeles, la pantalla completa y abrir direcciones `http` y `https`. Nada más.
+- **No se puede depurar desde fuera.** La versión instalada borra de su entorno las variables de WebView2 que abrirían un puerto de depuración o cambiarían el navegador o su perfil.
+- **Pegado.** Lo pegado entra sin caracteres de control: un texto con la marca de fin de pegado (`ESC [ 201 ~`) ya no puede cerrar el pegado protegido y ejecutar lo que sigue. Si el shell no protege el pegado (PowerShell y cmd), un texto de varias líneas pide confirmación, con el foco en «Cancelar», y una sola línea nunca se ejecuta sola.
+- **Rutas pegadas.** Cada ruta se escribe con las comillas de su shell: el nombre de un archivo no puede colar un comando.
+- **Sin puertas de entrada.** La aplicación no escucha en ningún puerto. El control remoto es `ssh` saliendo de tu equipo, y el nombre del equipo solo admite letras, dígitos, puntos, guiones y guiones bajos, nunca un guion inicial.
+- **Navegador de pruebas.** Es otro navegador, con perfil propio y vacío, sin inicio de sesión ni sincronización. Escucha solo en `127.0.0.1`, solo mientras lo tienes abierto, y se cierra con la terminal. Nunca es la ventana de la terminal.
+- **Historial.** No se recuerda un comando que contenga `password`, `token`, `secret`, `apikey`, `bearer` o similares, ni el que empieza por un espacio.
+- **Instalación.** En Windows el programa queda en una carpeta que solo un administrador puede cambiar.
+- **Dependencias.** `cargo audit` y `npm audit` no informan de vulnerabilidades en esta versión.
+
+Límites conocidos: el instalador de Windows no está firmado, y `SHA256SUMS` prueba que la descarga llegó entera, no quién la publicó.
+
 ## Ramas
 
 Cada parte de la terminal tiene su rama. Un cambio se hace en la rama de su área, se integra en `develop` y, cuando la versión está probada, pasa a `main`.
@@ -441,18 +643,64 @@ cargo test --workspace
 
 `npm run build` va antes que los comandos de `cargo`: la app Rust incluye `ui/dist` al compilar.
 
-## Estructura
+## Pruebas
+
+La lógica vive en funciones puras, y cada una tiene sus pruebas: 220 de la interfaz (Vitest) y 156 de Rust.
+
+- **Rust:** cada crate se prueba sin ventana. `crates/pty` arranca shells de verdad y responde a ConPTY como lo haría una terminal. `crates/shell` prueba las reglas de rutas con casos de Windows y de Unix en cualquier sistema. `crates/config` prueba que el archivo por defecto coincide con los valores por defecto, la vigilancia del archivo y las plantillas.
+- **Interfaz:** las pruebas cubren los `stores`: la línea que se escribe, la ayuda, el pegado, las comillas de cada shell, los enlaces, los atajos, las pestañas y el rótulo.
+- **Linux sin equipo Linux:** `cargo clippy` y `cargo test` se pasan también en un contenedor de Debian, y los paquetes `.deb` y `.rpm` se instalan en contenedores limpios de Debian y Fedora.
+- **Estilo:** Prettier, ESLint y `tsc` en modo estricto para la interfaz; `rustfmt` y `clippy` con los avisos como errores para Rust.
+
+## Estructura del repositorio
 
 ```
-crates/pty      Sesiones de pseudo-terminal (ConPTY en Windows, forkpty en Unix)
-crates/shell    Detección de los shells instalados y lo que cada uno anuncia (prompt, carpeta)
-crates/context  Lo que rodea a una terminal: la rama de Git de su carpeta
-crates/config   Configuración, temas y proyectos guardados
-crates/history  Comandos recordados, con filtro de credenciales
-crates/paste    Archivos e imágenes del portapapeles, convertidos en rutas
-crates/tools    Herramientas, agentes de IA y equipos de SSH: qué hay y cómo instalar lo que falta
-crates/browser  Navegador de pruebas aislado para los agentes
-src-tauri/      App de escritorio: ventana, comandos IPC y eventos
-install/        Instalar por comando (install.ps1, install.sh) y el LEEME.txt que se instala
-ui/             Interfaz: React, TypeScript, Tailwind y xterm.js
+Cargo.toml                 Espacio de trabajo de Rust: los crates y la app
+package.json               Espacio de trabajo de npm: la interfaz y la CLI de Tauri
+rust-toolchain.toml        Versión de Rust con la que se compila
+
+crates/
+  pty/src/lib.rs           Sesiones de pseudo-terminal (ConPTY en Windows, forkpty en Unix)
+  shell/src/
+    lib.rs                 Detección de los shells instalados
+    integration.rs         Marcas de prompt de cada shell
+    cwd.rs                 Carpeta anunciada por el shell y rutas locales fiables
+  config/src/
+    lib.rs                 Configuración: lectura, valores por defecto, vigilancia
+    default.toml           El archivo comentado que se escribe en el primer arranque
+    theme.rs               Temas: un preset y los colores que lo sustituyen
+    templates.rs           Aplicar una plantilla sin tocar el resto del archivo
+    templates/*.toml       Las nueve plantillas de aspecto
+    workspace.rs           Proyectos guardados
+    folders.rs             Carpetas de la app y traslado de datos antiguos
+  history/src/lib.rs       Comandos recordados, con filtro de credenciales
+  paste/src/lib.rs         Portapapeles: texto, archivos e imágenes como rutas
+  tools/src/
+    lib.rs                 Node.js y Docker: qué falta y cómo instalarlo
+    agents.rs              Agentes de IA conocidos
+    ssh.rs                 Equipos de ~/.ssh/config
+    path.rs                El PATH al día y los programas que contiene
+  browser/src/lib.rs       Navegador de pruebas aislado
+  context/src/lib.rs       Rama de Git de una carpeta
+
+src-tauri/
+  src/main.rs              Arranque, complementos y registro de comandos
+  src/commands.rs          Los comandos IPC
+  src/state.rs             Estado compartido: sesiones, carpetas, configuración
+  capabilities/            Permisos de la ventana
+  tauri.conf.json          Ventana, política de contenido e instaladores
+  windows/installer.nsi    Plantilla del instalador de Windows
+  icons/                   Icono de la app (icon.svg es el original)
+
+ui/
+  index.html, src/main.tsx Entrada de la interfaz
+  src/App.tsx              La ventana: reparto, atajos y arranque
+  src/ipc.ts               Llamadas al proceso nativo, con sus tipos
+  src/stores/              Estado y lógica pura, con sus pruebas
+  src/components/          Piezas de la ventana
+  src/index.css            Fuentes incluidas y colores del tema
+
+install/
+  install.ps1, install.sh  Instalar por comando
+  LEEME.txt                Lo que se instala y dónde, para quien usa la app
 ```
