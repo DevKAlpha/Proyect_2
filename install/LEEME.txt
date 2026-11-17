@@ -1,6 +1,9 @@
 TERMINAL_DUCK: QUÉ HAY EN TU EQUIPO Y DÓNDE
 ===========================================
 
+Versión 0.1A (en instaladores y paquetes figura como 0.1.0: solo admiten
+números).
+
 Este archivo se instala junto al programa. Explica qué archivos pone la
 terminal en tu equipo, para qué sirve cada uno y cómo comprobarlos.
 

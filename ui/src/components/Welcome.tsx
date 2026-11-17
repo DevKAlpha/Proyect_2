@@ -1,5 +1,11 @@
 import duck from '../assets/duck.svg';
 
+/**
+ * The version as people say it. Installers and package managers only take
+ * three numbers, so the files of this version are numbered 0.1.0.
+ */
+const VERSION = '0.1A';
+
 interface WelcomeProps {
   /** Font of the terminal, so the greeting reads as part of it. */
   fontFamily: string;
@@ -23,7 +29,9 @@ export function Welcome({ fontFamily, onClose }: WelcomeProps) {
     >
       <img src={duck} alt="" className="size-16 shrink-0" />
       <div className="min-w-0 flex-1">
-        <h1 className="text-xl font-bold">Terminal_Duck</h1>
+        <h1 className="text-xl font-bold">
+          Terminal_Duck <span className="text-sm font-normal text-fg/60">{VERSION}</span>
+        </h1>
         <p className="text-fg/70">Te damos la bienvenida. Escribe un comando para empezar.</p>
         <p className="truncate text-fg/70">
           F1 atajos · Ctrl+Shift+T terminal nueva · Ctrl+Shift+P plantillas de aspecto

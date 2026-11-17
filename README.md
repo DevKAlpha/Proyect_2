@@ -1,5 +1,7 @@
 # Terminal_Duck
 
+Versión 0.1A. Los instaladores y los gestores de paquetes solo admiten números, así que en ellos figura como 0.1.0.
+
 Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar con los shells de cada sistema, con Git y con agentes de IA, y para que una persona sin experiencia pueda empezar a usar una terminal.
 
 > Las carpetas de configuración y de datos se siguen llamando `terminal`, y el identificador de la app sigue siendo `com.devkalpha.terminal`: así nada de lo que ya tenías se pierde con el cambio de nombre.
