@@ -1,4 +1,4 @@
-# Terminal: configuración.
+# Terminal_Duck: configuración.
 # Los cambios se aplican al guardar, sin reiniciar la aplicación.
 
 # Versión del formato de este archivo. No la cambies a mano.
@@ -19,6 +19,10 @@ padding = 8
 # añade al final del PATH de cada pestaña, así que no sustituye a ningún
 # programa de Windows, y el PATH del sistema no cambia.
 linux_commands = true
+
+# Saludo al abrir la aplicación: el logo y el nombre sobre la primera
+# terminal. Se va solo con el primer comando. false = sin saludo.
+welcome = true
 
 [font]
 # Se usa la primera fuente de la lista que esté disponible. JetBrains Mono

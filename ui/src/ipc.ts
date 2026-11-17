@@ -28,6 +28,8 @@ export interface Config {
   padding: number;
   /** On Windows, Linux commands also in PowerShell and cmd. */
   linux_commands: boolean;
+  /** Greets the user when the app opens. */
+  welcome: boolean;
   font: { family: string; size: number; line_height: number };
   cursor: { style: 'block' | 'bar' | 'underline'; blink: boolean };
   theme: {

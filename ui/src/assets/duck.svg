@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <g id="duck">
+      <path d="M70 322 L44 236 L150 300 Z" />
+      <ellipse cx="236" cy="372" rx="176" ry="104" />
+      <circle cx="318" cy="250" r="96" />
+    </g>
+    <g id="hat">
+      <ellipse cx="306" cy="168" rx="128" ry="26" transform="rotate(-9 306 168)" />
+      <path d="M232 176 L214 62 Q258 30 322 44 Q356 50 376 40 L392 150 Q312 190 232 176 Z" />
+    </g>
+  </defs>
+
+  <!-- One dark outline around the whole duck, then the colours on top. -->
+  <use href="#duck" fill="#2b1d0e" stroke="#2b1d0e" stroke-width="30" stroke-linejoin="round" />
+  <ellipse cx="428" cy="270" rx="56" ry="28" fill="#2b1d0e" stroke="#2b1d0e" stroke-width="30" />
+  <use href="#duck" fill="#ffd23f" />
+  <!-- Belly light and wing. -->
+  <ellipse cx="236" cy="372" rx="176" ry="104" fill="#ffd23f" />
+  <path d="M120 372 Q150 300 250 318 Q300 330 300 372 Q262 436 190 428 Q136 420 120 372 Z" fill="#f4b41a" />
+  <!-- Beak. -->
+  <ellipse cx="428" cy="270" rx="56" ry="28" fill="#ff8a1f" />
+  <path d="M374 272 Q428 284 484 270" fill="none" stroke="#c75a00" stroke-width="8" stroke-linecap="round" />
+  <!-- Eye. -->
+  <circle cx="350" cy="236" r="17" fill="#1b1b1f" />
+  <circle cx="356" cy="230" r="6" fill="#ffffff" />
+
+  <!-- White top hat, a little battered. -->
+  <use href="#hat" fill="#2b1d0e" stroke="#2b1d0e" stroke-width="30" stroke-linejoin="round" />
+  <use href="#hat" fill="#ffffff" />
+  <path d="M229 158 Q312 172 390 132 L392 150 Q312 190 232 176 Z" fill="#b9bfca" />
+  <path d="M214 62 Q258 30 322 44 Q356 50 376 40" fill="none" stroke="#d9dde4" stroke-width="10" stroke-linecap="round" />
+  <path d="M330 60 L338 112" fill="none" stroke="#d9dde4" stroke-width="8" stroke-linecap="round" />
+</svg>

@@ -1,8 +1,8 @@
-# Terminal
+# Terminal_Duck
 
 Terminal de escritorio ligera para Windows, Linux y macOS. Pensada para trabajar con los shells de cada sistema, con Git y con agentes de IA, y para que una persona sin experiencia pueda empezar a usar una terminal.
 
-> «Terminal» es un nombre provisional. El identificador de la app (`com.devkalpha.terminal`) y la carpeta de configuración cambian cuando se elija el definitivo.
+> Las carpetas de configuración y de datos se siguen llamando `terminal`, y el identificador de la app sigue siendo `com.devkalpha.terminal`: así nada de lo que ya tenías se pierde con el cambio de nombre.
 
 ## Instalar
 
@@ -16,11 +16,11 @@ Con un comando, en PowerShell:
 irm https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install/install.ps1 | iex
 ```
 
-O con el instalador: descarga `terminal-setup-x64.exe` y ábrelo.
+O con el instalador: descarga `terminal-duck-setup-x64.exe` y ábrelo.
 
-- Se instala solo para tu usuario. No pide permisos de administrador.
+- Se instala en `C:\Program Files (x86)\Terminal_Duck`, para todo el equipo. Windows pide permiso de administrador: en esa carpeta ningún otro programa puede cambiar los archivos de la aplicación. El instalador deja elegir otra carpeta.
 - Incluye WebView2, el componente de Windows que dibuja la ventana, por si tu equipo no lo trae. Es lo único que la aplicación necesita.
-- Crea el acceso «Terminal» en el menú Inicio y se desinstala desde «Aplicaciones instaladas».
+- Crea el acceso «Terminal_Duck» en el menú Inicio y se desinstala desde «Aplicaciones instaladas».
 - El instalador no está firmado todavía. Windows puede mostrar el aviso «Windows protegió su PC»: pulsa «Más información» y «Ejecutar de todas formas».
 
 ### Linux
@@ -33,13 +33,13 @@ curl -fsSL https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install/in
 
 El comando elige el paquete de tu distribución y lo instala con tu gestor de paquetes, que añade las dependencias (WebKitGTK y GTK):
 
-| Distribución               | Paquete                    | Se instala con            |
-| -------------------------- | -------------------------- | ------------------------- |
-| Debian, Ubuntu, Mint       | `terminal-amd64.deb`       | `apt-get`                 |
-| Fedora, RHEL, openSUSE     | `terminal-x86_64.rpm`      | `dnf`, `yum` o `zypper`   |
-| Cualquier otra, o sin root | `terminal-x86_64.AppImage` | se copia a `~/.local/bin` |
+| Distribución               | Paquete                         | Se instala con            |
+| -------------------------- | ------------------------------- | ------------------------- |
+| Debian, Ubuntu, Mint       | `terminal-duck-amd64.deb`       | `apt-get`                 |
+| Fedora, RHEL, openSUSE     | `terminal-duck-x86_64.rpm`      | `dnf`, `yum` o `zypper`   |
+| Cualquier otra, o sin root | `terminal-duck-x86_64.AppImage` | se copia a `~/.local/bin` |
 
-También puedes descargar el paquete e instalarlo tú: `sudo apt install ./terminal-amd64.deb` o `sudo dnf install ./terminal-x86_64.rpm`. El AppImage lleva dentro todo lo que necesita y no se instala: dale permiso de ejecución y ábrelo.
+También puedes descargar el paquete e instalarlo tú: `sudo apt install ./terminal-duck-amd64.deb` o `sudo dnf install ./terminal-duck-x86_64.rpm`. El AppImage lleva dentro todo lo que necesita y no se instala: dale permiso de ejecución y ábrelo.
 
 - `sh install.sh --appimage` usa el AppImage aunque haya gestor de paquetes: no pide contraseña y no toca el sistema.
 - Por ahora solo hay paquetes para equipos x86_64.
@@ -77,7 +77,8 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 - Enlaces: las direcciones web se abren en el navegador, y las rutas de archivos y carpetas, en el explorador de archivos.
 - Atajos de teclado para todo: terminales, proyectos, vista dividida, menús y pantalla completa. `F1` los muestra.
 - Archivos ordenados en tres carpetas (programa, configuración y datos), a un clic desde el menú «Carpetas».
-- Copiar y pegar.
+- Copiar y pegar. Lo pegado entra sin caracteres de control: un texto copiado de una web no puede ejecutar nada por su cuenta.
+- Saludo al abrir, con el logo y el nombre. Se va con el primer comando; `welcome = false` en la configuración lo quita.
 
 ## Atajos
 
@@ -190,7 +191,7 @@ select_with = "shift"
 
 | Sistema | Ruta                                                      |
 | ------- | --------------------------------------------------------- |
-| Windows | `%LOCALAPPDATA%\Terminal\data\history.txt`                |
+| Windows | `%LOCALAPPDATA%\terminal\data\history.txt`                |
 | Linux   | `~/.local/share/terminal/data/history.txt`                |
 | macOS   | `~/Library/Application Support/terminal/data/history.txt` |
 
@@ -279,7 +280,7 @@ Sirve cualquier tipo de archivo (imágenes, PDF, documentos, hojas de cálculo, 
 
 | Sistema | Carpeta                                              |
 | ------- | ---------------------------------------------------- |
-| Windows | `%LOCALAPPDATA%\Terminal\data\pasted`                |
+| Windows | `%LOCALAPPDATA%\terminal\data\pasted`                |
 | Linux   | `~/.local/share/terminal/data/pasted`                |
 | macOS   | `~/Library/Application Support/terminal/data/pasted` |
 
@@ -378,11 +379,11 @@ El archivo se crea en el primer arranque, con comentarios que explican cada opci
 
 La terminal usa tres carpetas, cada una con un trabajo. El menú «Carpetas» de la barra lateral (`Ctrl+Shift+F`) abre cualquiera de ellas en el explorador de archivos.
 
-| Carpeta       | Qué hay                                                                | Windows                        | Linux                                         |
-| ------------- | ---------------------------------------------------------------------- | ------------------------------ | --------------------------------------------- |
-| Programa      | La aplicación, el desinstalador y `LEEME.txt`                          | `%LOCALAPPDATA%\Terminal`      | `/usr/bin/terminal-app` y `/usr/lib/Terminal` |
-| Configuración | `config.toml`, su copia y tus proyectos                                | `%APPDATA%\terminal`           | `~/.config/terminal`                          |
-| Datos         | Comandos recordados, imágenes pegadas, perfil del navegador de pruebas | `%LOCALAPPDATA%\Terminal\data` | `~/.local/share/terminal/data`                |
+| Carpeta       | Qué hay                                                                | Windows                                | Linux                                               |
+| ------------- | ---------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------- |
+| Programa      | La aplicación, el desinstalador y `LEEME.txt`                          | `C:\Program Files (x86)\Terminal_Duck` | `/usr/bin/terminal-duck` y `/usr/lib/Terminal_Duck` |
+| Configuración | `config.toml`, su copia y tus proyectos                                | `%APPDATA%\terminal`                   | `~/.config/terminal`                                |
+| Datos         | Comandos recordados, imágenes pegadas, perfil del navegador de pruebas | `%LOCALAPPDATA%\terminal\data`         | `~/.local/share/terminal/data`                      |
 
 - `LEEME.txt`, en la carpeta del programa, explica archivo por archivo qué es cada cosa, cómo abrir la terminal desde otra terminal, cómo comprobar un instalador con su suma SHA-256 y cómo desinstalar.
 - Borrar la carpeta de datos no rompe nada: solo se pierden los comandos recordados y las imágenes pegadas. Borrar la de configuración devuelve el aspecto de fábrica.

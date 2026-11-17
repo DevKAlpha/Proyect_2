@@ -4,6 +4,7 @@ import { ShortcutsPanel } from './components/ShortcutsPanel';
 import { Sidebar } from './components/Sidebar';
 import { TabBar } from './components/TabBar';
 import { TerminalPane } from './components/TerminalPane';
+import { Welcome } from './components/Welcome';
 import { ToolsBar } from './components/ToolsBar';
 import {
   loadWorkspace,
@@ -291,6 +292,8 @@ export function App() {
   const split = useTabs((state) => state.split);
   const helpOpen = useSettings((state) => state.helpOpen);
   const toggleHelp = useSettings((state) => state.toggleHelp);
+  const welcomeOpen = useSettings((state) => state.welcomeOpen);
+  const dismissWelcome = useSettings((state) => state.dismissWelcome);
   // The work area, to turn a pointer position into a share of its width.
   const workRef = useRef<HTMLElement>(null);
   const leftShare = `${splitRatio * 100}%`;
@@ -438,6 +441,16 @@ export function App() {
               Cerrar
             </button>
           </div>
+        )}
+
+        {config?.welcome && welcomeOpen && visibleTabs.length > 0 && (
+          <Welcome
+            fontFamily={config.font.family}
+            onClose={() => {
+              dismissWelcome();
+              focusTerminal();
+            }}
+          />
         )}
 
         <main

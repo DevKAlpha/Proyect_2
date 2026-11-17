@@ -1,5 +1,5 @@
-TERMINAL: QUÉ HAY EN TU EQUIPO Y DÓNDE
-======================================
+TERMINAL_DUCK: QUÉ HAY EN TU EQUIPO Y DÓNDE
+===========================================
 
 Este archivo se instala junto al programa. Explica qué archivos pone la
 terminal en tu equipo, para qué sirve cada uno y cómo comprobarlos.
@@ -23,8 +23,8 @@ de fábrica. PROGRAMA se quita con el desinstalador.
 2. WINDOWS
 ----------
 
-  PROGRAMA        %LOCALAPPDATA%\Terminal\
-                    terminal-app.exe     la aplicación
+  PROGRAMA        C:\Program Files (x86)\Terminal_Duck\
+                    terminal-duck.exe     la aplicación
                     uninstall.exe        el desinstalador
                     LEEME.txt            este archivo
 
@@ -33,13 +33,16 @@ de fábrica. PROGRAMA se quita con el desinstalador.
                     config.backup.toml   la anterior, tras aplicar una plantilla
                     workspace.json       tus proyectos y sus terminales
 
-  DATOS           %LOCALAPPDATA%\Terminal\data\
+  DATOS           %LOCALAPPDATA%\terminal\data\
                     history.txt          comandos recordados, uno por línea
                     pasted\              imágenes pegadas (se borran a los 7 días)
                     shell\               archivo de arranque para zsh
                     browser-profile\     perfil del navegador de pruebas
 
-  Acceso directo  Menú Inicio > Terminal
+  Acceso directo  Menú Inicio > Terminal_Duck
+
+Solo un administrador puede cambiar la carpeta PROGRAMA: ni otro programa
+ni un descuido pueden sustituir la aplicación. Las otras dos son tuyas.
 
 Para escribir una de esas rutas, pégala en la barra del Explorador de
 archivos o en el cuadro Ejecutar (Windows + R).
@@ -50,15 +53,15 @@ archivos o en el cuadro Ejecutar (Windows + R).
 
 Con paquete .deb o .rpm:
 
-  PROGRAMA        /usr/bin/terminal-app                      la aplicación
-                  /usr/lib/Terminal/LEEME.txt                este archivo
-                  /usr/share/applications/Terminal.desktop   entrada del menú
+  PROGRAMA        /usr/bin/terminal-duck                      la aplicación
+                  /usr/lib/Terminal_Duck/LEEME.txt                este archivo
+                  /usr/share/applications/Terminal_Duck.desktop   entrada del menú
                   /usr/share/icons/hicolor/                  iconos
 
 Con AppImage (instalado con install.sh):
 
-  PROGRAMA        ~/.local/bin/terminal-app                  la aplicación entera
-                  ~/.local/share/applications/terminal-app.desktop
+  PROGRAMA        ~/.local/bin/terminal-duck                  la aplicación entera
+                  ~/.local/share/applications/terminal-duck.desktop
 
 En los dos casos:
 
@@ -72,8 +75,8 @@ En los dos casos:
 4. ABRIRLA DESDE UNA TERMINAL
 -----------------------------
 
-  Windows   & "$env:LOCALAPPDATA\Terminal\terminal-app.exe"
-  Linux     terminal-app
+  Windows   & "${env:ProgramFiles(x86)}\Terminal_Duck\terminal-duck.exe"
+  Linux     terminal-duck
 
 
 5. COMPROBAR QUE EL INSTALADOR ES EL PUBLICADO
@@ -82,7 +85,7 @@ En los dos casos:
 Cada versión se publica con un archivo SHA256SUMS: la suma de cada
 instalador. Descarga los dos a la misma carpeta y compara.
 
-  Windows   Get-FileHash .\terminal-setup-x64.exe -Algorithm SHA256
+  Windows   Get-FileHash .\terminal-duck-setup-x64.exe -Algorithm SHA256
             (el resultado debe ser la suma que trae SHA256SUMS)
 
   Linux     sha256sum -c SHA256SUMS --ignore-missing
@@ -96,12 +99,12 @@ Versiones:  https://github.com/DevKAlpha/Proyect_2/releases
 6. DESINSTALAR
 --------------
 
-  Windows   Configuración > Aplicaciones > Aplicaciones instaladas > Terminal
+  Windows   Configuración > Aplicaciones > Aplicaciones instaladas > Terminal_Duck
             o ejecuta uninstall.exe en la carpeta del programa.
-  Debian    sudo apt remove terminal
-  Fedora    sudo dnf remove terminal
-  AppImage  borra ~/.local/bin/terminal-app y
-            ~/.local/share/applications/terminal-app.desktop
+  Debian    sudo apt remove terminal-duck
+  Fedora    sudo dnf remove terminal-duck
+  AppImage  borra ~/.local/bin/terminal-duck y
+            ~/.local/share/applications/terminal-duck.desktop
 
 Desinstalar no borra CONFIGURACIÓN ni DATOS. Si no vas a volver a usar la
 terminal, borra esas dos carpetas a mano.

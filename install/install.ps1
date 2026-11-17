@@ -1,18 +1,20 @@
 <#
 .SYNOPSIS
-  Instala Terminal en Windows desde la línea de comandos.
+  Instala Terminal_Duck en Windows desde la línea de comandos.
 
 .DESCRIPTION
   Descarga el instalador de la última versión publicada, comprueba que el
-  archivo llegó entero (SHA-256) y lo ejecuta en silencio. Instala solo para
-  tu usuario: no pide permisos de administrador. El instalador incluye lo
+  archivo llegó entero (SHA-256) y lo ejecuta en silencio. Instala para todo
+  el equipo, en "Program Files (x86)": Windows pide permiso de
+  administrador, y así ningún otro programa puede cambiar sus archivos. El
+  instalador incluye lo
   que la aplicación necesita (WebView2, si tu Windows no lo trae).
 
   No instala nada más y no cambia ajustes del sistema.
 
 .PARAMETER Source
   De dónde sale el instalador: una dirección https o una carpeta de tu
-  equipo que ya contenga `terminal-setup-x64.exe` y `SHA256SUMS` (para
+  equipo que ya contenga `terminal-duck-setup-x64.exe` y `SHA256SUMS` (para
   instalar sin conexión).
 
 .EXAMPLE
@@ -28,11 +30,11 @@ param(
 # Los textos que se muestran no llevan tildes a propósito: Windows PowerShell
 # 5.1 lee este archivo con otra codificación y las estropearía.
 $ErrorActionPreference = 'Stop'
-$installer = 'terminal-setup-x64.exe'
+$installer = 'terminal-duck-setup-x64.exe'
 $sums = 'SHA256SUMS'
 
 if (-not [Environment]::Is64BitOperatingSystem) {
-    throw 'Terminal necesita un Windows de 64 bits.'
+    throw 'Terminal_Duck necesita un Windows de 64 bits.'
 }
 
 $fromWeb = $Source -match '^https://'
@@ -72,13 +74,13 @@ try {
         throw "El instalador no coincide con su suma SHA-256. No se instala nada. Vuelve a intentarlo; si se repite, no lo ejecutes."
     }
 
-    Write-Host 'Instalando Terminal para tu usuario...'
+    Write-Host 'Instalando Terminal_Duck. Windows pedira permiso de administrador...'
     # /S: instalación silenciosa del instalador NSIS.
     $process = Start-Process -FilePath (Join-Path $folder $installer) -ArgumentList '/S' -Wait -PassThru
     if ($process.ExitCode -ne 0) {
         throw "Error del instalador, valor de salida: $($process.ExitCode)."
     }
-    Write-Host 'Listo. Busca Terminal en Inicio.'
+    Write-Host 'Listo. Busca Terminal_Duck en Inicio.'
 }
 finally {
     Remove-Item -LiteralPath $folder -Recurse -Force -ErrorAction SilentlyContinue

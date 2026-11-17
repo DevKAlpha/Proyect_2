@@ -60,6 +60,8 @@ pub struct Config {
     /// On Windows, lets PowerShell and cmd find the Unix tools that come
     /// with Git for Windows (`grep`, `ls`, `cat`...).
     pub linux_commands: bool,
+    /// Greets the user with the logo and the name when the app opens.
+    pub welcome: bool,
     pub font: Font,
     pub cursor: Cursor,
     pub theme: Theme,
@@ -158,6 +160,7 @@ impl Default for Config {
             scrollback: 5000,
             padding: 8,
             linux_commands: true,
+            welcome: true,
             font: Font::default(),
             cursor: Cursor::default(),
             theme: Theme::default(),
@@ -243,7 +246,55 @@ pub fn load_or_create(path: &Path) -> Result<Config, ConfigError> {
         }
         fs::write(path, DEFAULT_TOML)?;
     }
-    Config::parse(&fs::read_to_string(path)?)
+    let mut text = fs::read_to_string(path)?;
+    if let Some(updated) = adopt_default_theme(&text) {
+        // A file that cannot be written keeps its old look: not worth
+        // stopping the terminal for.
+        if fs::write(path, &updated).is_ok() {
+            text = updated;
+        }
+    }
+    Config::parse(&text)
+}
+
+/// The theme lines of the file older builds wrote on first run, when the
+/// default look was the dark one.
+const OLD_THEME_LINES: [&str; 2] = [
+    "# Tema de partida: \"dark\", \"light\" o \"high-contrast\".",
+    "preset = \"dark\"",
+];
+/// What replaces them: the lines of the file written today.
+const THEME_LINES: [&str; 3] = [
+    "# Tema de partida: \"console\" (negro sobre blanco, como la consola de un",
+    "# router), \"dark\", \"light\" o \"high-contrast\".",
+    "preset = \"console\"",
+];
+
+/// `text` with the default look of today, when it still carries the theme
+/// lines an older build wrote: that user never chose a theme, they were
+/// given one. `None` when there is nothing to change.
+///
+/// A file where the user picked a theme, by hand or with a template, no
+/// longer has those two lines together and is left alone. So is this file
+/// after the change: choosing "dark" later sticks.
+pub fn adopt_default_theme(text: &str) -> Option<String> {
+    let lines: Vec<&str> = text.split_inclusive('\n').collect();
+    let at = lines.windows(2).position(|pair| {
+        pair[0].trim_end() == OLD_THEME_LINES[0] && pair[1].trim_end() == OLD_THEME_LINES[1]
+    })?;
+    // The file keeps its own line endings.
+    let ending = if lines[at].ends_with("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
+    let mut updated: String = lines[..at].concat();
+    for line in THEME_LINES {
+        updated.push_str(line);
+        updated.push_str(ending);
+    }
+    updated.push_str(&lines[at + 2..].concat());
+    Some(updated)
 }
 
 /// Keeps a file watch alive. The watch stops when this value is dropped.
@@ -428,6 +479,56 @@ preset = 'neon'
 
         assert_eq!(config, Config::default());
         assert_eq!(fs::read_to_string(&path).unwrap(), DEFAULT_TOML);
+    }
+
+    #[test]
+    fn welcome_can_be_turned_off() {
+        assert!(Config::default().welcome);
+        assert!(!Config::parse("welcome = false\n").unwrap().welcome);
+    }
+
+    #[test]
+    fn a_file_with_the_old_default_theme_gets_the_new_one() {
+        let old = "padding = 8\r\n[theme]\r\n# Tema de partida: \"dark\", \"light\" o \"high-contrast\".\r\npreset = \"dark\"\r\n# background = \"#14161b\"\r\n";
+
+        let updated = adopt_default_theme(old).unwrap();
+
+        assert_eq!(Config::parse(&updated).unwrap().theme, Theme::default());
+        assert!(updated.starts_with("padding = 8\r\n[theme]\r\n# Tema de partida: \"console\""));
+        assert!(updated.ends_with("preset = \"console\"\r\n# background = \"#14161b\"\r\n"));
+        // Done once: the new file is not touched again.
+        assert_eq!(adopt_default_theme(&updated), None);
+    }
+
+    #[test]
+    fn a_theme_the_user_chose_is_kept() {
+        // Chosen by hand: the comment of the old file is gone or the lines differ.
+        assert_eq!(adopt_default_theme("[theme]\npreset = \"dark\"\n"), None);
+        assert_eq!(
+            adopt_default_theme(
+                "# Tema de partida: \"dark\", \"light\" o \"high-contrast\".\npreset = \"light\"\n"
+            ),
+            None
+        );
+        assert_eq!(adopt_default_theme(DEFAULT_TOML), None);
+    }
+
+    #[test]
+    fn an_old_file_on_disk_is_updated_when_loaded() {
+        let folder = tempfile::tempdir().unwrap();
+        let path = folder.path().join("config.toml");
+        fs::write(
+            &path,
+            "[theme]\n# Tema de partida: \"dark\", \"light\" o \"high-contrast\".\npreset = \"dark\"\n",
+        )
+        .unwrap();
+
+        let config = load_or_create(&path).unwrap();
+
+        assert_eq!(config.theme, Theme::default());
+        assert!(fs::read_to_string(&path)
+            .unwrap()
+            .ends_with("preset = \"console\"\n"));
     }
 
     #[test]

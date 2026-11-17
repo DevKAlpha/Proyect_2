@@ -12,7 +12,26 @@ mod state;
 
 use tauri::{Manager, RunEvent};
 
+/// Variables that tell the web view of Windows to start with other
+/// switches, another browser program or another profile folder. One of the
+/// switches opens a debugging port, and whoever connects to it controls
+/// this window, which can start shells.
+#[cfg(all(windows, not(debug_assertions)))]
+const WEB_VIEW_OVERRIDES: [&str; 4] = [
+    "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+    "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER",
+    "WEBVIEW2_USER_DATA_FOLDER",
+    "WEBVIEW2_RELEASE_CHANNEL_PREFERENCE",
+];
+
 fn main() {
+    // An installed build never takes them from its environment. This runs
+    // before any other thread exists and before the web view is created.
+    #[cfg(all(windows, not(debug_assertions)))]
+    for name in WEB_VIEW_OVERRIDES {
+        std::env::remove_var(name);
+    }
+
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())

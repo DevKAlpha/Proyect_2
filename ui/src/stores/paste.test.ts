@@ -1,5 +1,51 @@
 import { describe, expect, it } from 'vitest';
-import { isVideo, pathsToInput, quotePath } from './paste';
+import { isVideo, pastedText, pathsToInput, planPaste, quotePath } from './paste';
+
+describe('pastedText', () => {
+  it('keeps text, tabs and line ends', () => {
+    expect(pastedText('git status\n\tcañón ñ 日本\r\n')).toBe('git status\n\tcañón ñ 日本\r\n');
+  });
+
+  it('removes the mark that would end the paste and run what follows', () => {
+    const copied = 'echo hola\x1b[201~\nrm -rf ~\n';
+
+    expect(pastedText(copied)).toBe('echo hola[201~\nrm -rf ~\n');
+    expect(pastedText(copied)).not.toContain('\x1b');
+  });
+
+  it('removes every other control character, also the 8-bit ones', () => {
+    expect(pastedText('a\x00b\x07c\x08d\x7fe\x9b201~f\x1b]0;x\x07')).toBe('abcde201~f]0;x');
+  });
+});
+
+describe('planPaste', () => {
+  it('a protected paste goes in whole: the shell waits for Enter', () => {
+    expect(planPaste('ls\nrm -rf ~\n', true)).toEqual({ text: 'ls\nrm -rf ~\n', lines: 1 });
+  });
+
+  it('unprotected, a copied command does not run by itself', () => {
+    expect(planPaste('git status\r\n', false)).toEqual({ text: 'git status', lines: 1 });
+    expect(planPaste('git status\n\n', false)).toEqual({ text: 'git status', lines: 1 });
+  });
+
+  it('unprotected, several lines are counted so the user can be asked', () => {
+    expect(planPaste('echo a\necho b\r\necho c\n', false)).toEqual({
+      text: 'echo a\necho b\r\necho c',
+      lines: 3,
+    });
+  });
+
+  it('removes control characters in both cases', () => {
+    expect(planPaste('a\x1b[201~\nb', true).text).toBe('a[201~\nb');
+    expect(planPaste('a\x1b[201~\nb', false)).toEqual({ text: 'a[201~\nb', lines: 2 });
+  });
+});
+
+describe('quotePath on PowerShell outside Windows', () => {
+  it('a double quote in a file name cannot close the quotes', () => {
+    expect(quotePath('/tmp/a"; rm -rf ~; ".png', 'pwsh')).toBe(`'/tmp/a"; rm -rf ~; ".png'`);
+  });
+});
 
 describe('isVideo', () => {
   it('knows videos by their ending, in any case', () => {

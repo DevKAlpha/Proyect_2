@@ -1,5 +1,5 @@
 #!/bin/sh
-# Instala Terminal en Linux desde la línea de comandos.
+# Instala Terminal_Duck en Linux desde la línea de comandos.
 #
 #   curl -fsSL https://raw.githubusercontent.com/DevKAlpha/Proyect_2/main/install/install.sh | sh
 #
@@ -64,9 +64,9 @@ else
 fi
 
 case "$KIND" in
-  deb) PACKAGE=terminal-amd64.deb ;;
-  rpm) PACKAGE=terminal-x86_64.rpm ;;
-  appimage) PACKAGE=terminal-x86_64.AppImage ;;
+  deb) PACKAGE=terminal-duck-amd64.deb ;;
+  rpm) PACKAGE=terminal-duck-x86_64.rpm ;;
+  appimage) PACKAGE=terminal-duck-x86_64.AppImage ;;
 esac
 
 WORK=$(mktemp -d)
@@ -139,22 +139,22 @@ case "$KIND" in
     BIN="$HOME/.local/bin"
     APPS="$HOME/.local/share/applications"
     mkdir -p "$BIN" "$APPS"
-    cp "$WORK/$PACKAGE" "$BIN/terminal-app"
-    chmod 755 "$BIN/terminal-app"
+    cp "$WORK/$PACKAGE" "$BIN/terminal-duck"
+    chmod 755 "$BIN/terminal-duck"
     # Para que aparezca en el menú de aplicaciones.
-    cat >"$APPS/terminal-app.desktop" <<EOF
+    cat >"$APPS/terminal-duck.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=Terminal
+Name=Terminal_Duck
 Comment=Terminal de escritorio para shells, Git y agentes de IA
-Exec=$BIN/terminal-app
+Exec=$BIN/terminal-duck
 Terminal=false
 Categories=Utility;TerminalEmulator;
 EOF
-    echo "Terminal está instalada en $BIN/terminal-app (sin permisos de root)."
+    echo "Terminal_Duck está instalada en $BIN/terminal-duck (sin permisos de root)."
     echo "Búscala en el menú de aplicaciones."
     exit 0
     ;;
 esac
 
-echo "Terminal está instalada. Búscala en el menú de aplicaciones o ejecuta: terminal-app"
+echo "Terminal_Duck está instalada. Búscala en el menú de aplicaciones o ejecuta: terminal-duck"

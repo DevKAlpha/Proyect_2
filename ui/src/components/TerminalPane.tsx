@@ -22,7 +22,7 @@ import {
 } from '../ipc';
 import type { Hint } from '../stores/guide';
 import { useHistory } from '../stores/history';
-import { pathsToInput } from '../stores/paste';
+import { pathsToInput, planPaste } from '../stores/paste';
 import { usePrograms } from '../stores/programs';
 import { useRemote } from '../stores/remote';
 import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
@@ -142,6 +142,14 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
   // The folder the shell is in and its Git branch.
   const [place, setPlace] = useState<Place | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // A paste of several lines that waits for the user's yes.
+  const [pendingPaste, setPendingPaste] = useState<{ text: string; lines: number } | null>(null);
+  /** Answers the question about a paste and gives the keyboard back. */
+  const endPaste = (accepted: boolean) => {
+    if (accepted && pendingPaste) termRef.current?.paste(pendingPaste.text);
+    setPendingPaste(null);
+    termRef.current?.focus();
+  };
   // Whether this screen can show a picture behind it. xterm.js fixes that
   // when a screen opens, so it is remembered for later theme changes.
   const seeThroughRef = useRef(false);
@@ -247,15 +255,23 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
         );
       }
     };
+    // Text is pasted at once only when it cannot run anything by itself.
+    // Several lines into a shell that takes each line end as Enter wait
+    // for the user to say yes.
+    const pasteText = (text: string) => {
+      const plan = planPaste(text, term.modes.bracketedPasteMode);
+      if (plan.lines > 1) setPendingPaste(plan);
+      else if (plan.text) term.paste(plan.text);
+    };
     const paste = () => {
       clipboardPaste()
         .then((pasted) => {
           if (disposed) return;
-          if (pasted.text) term.paste(pasted.text);
+          if (pasted.text) pasteText(pasted.text);
           else insertFiles(pasted.paths);
         })
         // The clipboard could not be read in full: text alone still can be.
-        .catch(() => void readText().then((text) => text && !disposed && term.paste(text)));
+        .catch(() => void readText().then((text) => text && !disposed && pasteText(text)));
     };
     // A drop lands on the window, and only the terminal on screen takes it.
     // Paths in the output are links to the file manager; web addresses, to
@@ -319,6 +335,8 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
       // The line is read from the screen before Enter makes the shell move on.
       assist.beforeInput(data);
       send(data);
+      // The greeting gives its room back with the first command.
+      if (data.includes('\r')) useSettings.getState().dismissWelcome();
     });
     const resize = term.onResize(({ cols, rows }) => {
       if (sessionId !== null) void resizePty(sessionId, cols, rows);
@@ -384,6 +402,37 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
       }}
     >
       <div ref={hostRef} className="min-h-0 w-full flex-1" />
+      {pendingPaste && (
+        <div
+          role="alertdialog"
+          aria-label="Confirmar el pegado"
+          className="flex items-center gap-3 bg-fg/10 px-3 py-2 text-sm"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') endPaste(false);
+          }}
+        >
+          <p className="min-w-0 flex-1">
+            Vas a pegar {pendingPaste.lines} líneas. Este shell ejecuta cada línea al pegarla, sin
+            esperar a Enter.
+          </p>
+          <button
+            type="button"
+            // The safe answer has the keyboard: Enter by reflex pastes nothing.
+            autoFocus
+            onClick={() => endPaste(false)}
+            className="shrink-0 rounded border border-fg/30 px-2 py-0.5 outline-none hover:bg-fg/10 focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => endPaste(true)}
+            className="shrink-0 rounded border border-fg/30 px-2 py-0.5 outline-none hover:bg-fg/10 focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            Pegar y ejecutar
+          </button>
+        </div>
+      )}
       {config?.input.hints && (
         <HintBar
           hint={hint}
