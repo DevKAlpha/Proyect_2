@@ -12,9 +12,9 @@
  * the defaults in crates/config.
  */
 :root {
-  --term-bg: #ffffff;
-  --term-fg: #000000;
-  --term-accent: #0b5cad;
+  --term-bg: #000000;
+  --term-fg: #ffffff;
+  --term-accent: #4d8dff;
 }
 
 /* Expose them as Tailwind colours: bg-bg, text-fg, border-accent, bg-fg/10... */

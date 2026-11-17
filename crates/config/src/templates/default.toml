@@ -1,5 +1,5 @@
 # ── Plantilla «Predeterminada» ──────────────────────────────────────────────
-# El aspecto con el que llega la terminal: texto negro sobre blanco, como la
+# El aspecto con el que llega la terminal: texto blanco sobre negro, como la
 # consola de un router, con color solo donde hace falta distinguir algo.
 # Vuelve aquí cuando quieras empezar de nuevo.
 
@@ -22,21 +22,21 @@ style = "block"
 blink = true
 
 [theme]
-# Tema de partida: "console" (negro sobre blanco, como la consola de un
+# Tema de partida: "console" (blanco sobre negro, como la consola de un
 # router), "dark", "light" o "high-contrast".
 preset = "console"
 # Cualquier color de abajo sustituye al del tema. Quita el "#" inicial de la
 # línea y cambia el valor. Formato: #RRGGBB, o #RRGGBBAA con transparencia.
-# background = "#ffffff"
-# foreground = "#000000"
-# cursor = "#000000"
-# selection = "#0b5cad40"
+# background = "#000000"
+# foreground = "#ffffff"
+# cursor = "#ffffff"
+# selection = "#4d8dff66"
 # Color de la pestaña activa y del foco.
-# accent = "#0b5cad"
+# accent = "#4d8dff"
 
 # Los 16 colores que usan los programas (errores en rojo, carpetas en azul...).
 # Nombres: black, red, green, yellow, blue, magenta, cyan, white, y los mismos
 # con "bright_" delante. Solo hace falta escribir los que quieras cambiar.
 # [theme.ansi]
-# red = "#c0261c"
-# bright_blue = "#1f78d1"
+# red = "#ff5f56"
+# bright_blue = "#7aa9ff"

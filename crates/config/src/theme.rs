@@ -40,19 +40,19 @@ struct Preset {
 
 /// The first preset is the default.
 const PRESETS: &[Preset] = &[
-    // The console of a network router: black on white, as plain as a sheet of
-    // paper. Colour is kept for what must stand out (errors, folders, the
-    // active tab), in shades dark enough to read on white.
+    // The console of a network router: white on black, nothing else. Colour
+    // is kept for what must stand out (errors, folders, the active tab), in
+    // shades bright enough to read on black.
     Preset {
         name: "console",
-        background: "#ffffff",
-        foreground: "#000000",
-        cursor: "#000000",
-        selection: "#0b5cad40",
-        accent: "#0b5cad",
+        background: "#000000",
+        foreground: "#ffffff",
+        cursor: "#ffffff",
+        selection: "#4d8dff66",
+        accent: "#4d8dff",
         ansi: [
-            "#000000", "#c0261c", "#1e7d32", "#8f6400", "#0b5cad", "#8b2fb0", "#0b7a85", "#8a8f98",
-            "#5f6672", "#e03a2f", "#2a9d44", "#b07d00", "#1f78d1", "#a646cc", "#1296a3", "#c8ccd2",
+            "#000000", "#ff5f56", "#3ecf5a", "#f2c744", "#4d8dff", "#c678dd", "#33c9dc", "#d0d0d0",
+            "#6b6b6b", "#ff8078", "#6fe085", "#ffd866", "#7aa9ff", "#d9a0ee", "#6fdcec", "#ffffff",
         ],
     },
     Preset {

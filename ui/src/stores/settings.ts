@@ -95,9 +95,6 @@ interface SettingsState {
   /** Whether the list of keyboard shortcuts is on screen. */
   helpOpen: boolean;
   toggleHelp: () => void;
-  /** Whether the greeting is still on screen. It goes with the first command. */
-  welcomeOpen: boolean;
-  dismissWelcome: () => void;
   /** Makes the text one step larger (`1`) or smaller (`-1`). */
   zoomBy: (step: 1 | -1) => void;
   resetZoom: () => void;
@@ -224,12 +221,6 @@ export const useSettings = create<SettingsState>((set, get) => {
 
     helpOpen: false,
     toggleHelp: () => set((state) => ({ helpOpen: !state.helpOpen })),
-
-    welcomeOpen: true,
-    // Called on every Enter: nothing is set once the greeting is gone.
-    dismissWelcome: () => {
-      if (get().welcomeOpen) set({ welcomeOpen: false });
-    },
   };
 });
 

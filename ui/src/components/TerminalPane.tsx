@@ -335,8 +335,6 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
       // The line is read from the screen before Enter makes the shell move on.
       assist.beforeInput(data);
       send(data);
-      // The greeting gives its room back with the first command.
-      if (data.includes('\r')) useSettings.getState().dismissWelcome();
     });
     const resize = term.onResize(({ cols, rows }) => {
       if (sessionId !== null) void resizePty(sessionId, cols, rows);

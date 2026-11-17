@@ -41,7 +41,7 @@ const TEMPLATES: &[Template] = &[
     Template {
         id: "default",
         name: "Predeterminada",
-        about: "Negro sobre blanco, como la consola de un router.",
+        about: "Blanco sobre negro, como la consola de un router.",
         detailed: false,
         text: include_str!("templates/default.toml"),
     },

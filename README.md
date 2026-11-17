@@ -70,7 +70,7 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 - Una barra bajo cada terminal muestra la carpeta en la que estás y su rama de Git, y abre la carpeta en el explorador de archivos.
 - Control remoto: abre una terminal en otro equipo por SSH, con tus equipos guardados en un menú.
 - Borra parte de un comando seleccionándola con el ratón o con el teclado.
-- Aspecto de consola de router por defecto: negro sobre blanco, con color solo donde hace falta distinguir algo.
+- Aspecto de consola de router por defecto: blanco sobre negro, con color solo donde hace falta distinguir algo.
 - Personalizable: temas, colores, fuente, cursor e imagen de fondo.
 - Fuente JetBrains Mono incluida, texto nítido en pantallas de alta densidad y zoom con el teclado.
 - Avisa si faltan Node.js o Docker y los instala con un clic, en una pestaña donde ves el comando.
@@ -80,7 +80,7 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 - Atajos de teclado para todo: terminales, proyectos, vista dividida, menús y pantalla completa. `F1` los muestra.
 - Archivos ordenados en tres carpetas (programa, configuración y datos), a un clic desde el menú «Carpetas».
 - Copiar y pegar. Lo pegado entra sin caracteres de control: un texto copiado de una web no puede ejecutar nada por su cuenta.
-- Saludo al abrir, con el logo y el nombre. Se va con el primer comando; `welcome = false` en la configuración lo quita.
+- El patito y el nombre, dibujados con caracteres de terminal sobre la terminal y siempre a la vista. Toman los colores de la plantilla que uses.
 
 ## Atajos
 

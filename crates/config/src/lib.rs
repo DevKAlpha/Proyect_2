@@ -60,8 +60,6 @@ pub struct Config {
     /// On Windows, lets PowerShell and cmd find the Unix tools that come
     /// with Git for Windows (`grep`, `ls`, `cat`...).
     pub linux_commands: bool,
-    /// Greets the user with the logo and the name when the app opens.
-    pub welcome: bool,
     pub font: Font,
     pub cursor: Cursor,
     pub theme: Theme,
@@ -160,7 +158,6 @@ impl Default for Config {
             scrollback: 5000,
             padding: 8,
             linux_commands: true,
-            welcome: true,
             font: Font::default(),
             cursor: Cursor::default(),
             theme: Theme::default(),
@@ -265,7 +262,7 @@ const OLD_THEME_LINES: [&str; 2] = [
 ];
 /// What replaces them: the lines of the file written today.
 const THEME_LINES: [&str; 3] = [
-    "# Tema de partida: \"console\" (negro sobre blanco, como la consola de un",
+    "# Tema de partida: \"console\" (blanco sobre negro, como la consola de un",
     "# router), \"dark\", \"light\" o \"high-contrast\".",
     "preset = \"console\"",
 ];
@@ -479,12 +476,6 @@ preset = 'neon'
 
         assert_eq!(config, Config::default());
         assert_eq!(fs::read_to_string(&path).unwrap(), DEFAULT_TOML);
-    }
-
-    #[test]
-    fn welcome_can_be_turned_off() {
-        assert!(Config::default().welcome);
-        assert!(!Config::parse("welcome = false\n").unwrap().welcome);
     }
 
     #[test]
