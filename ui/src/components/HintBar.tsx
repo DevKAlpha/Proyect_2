@@ -1,8 +1,15 @@
 import type { Hint } from '../stores/guide';
+import { DuckWorking } from './DuckWorking';
 
 interface HintBarProps {
   /** What to say about the command being typed. `null` leaves the line blank. */
   hint: Hint | null;
+  /** When the command running now started, or `null` when the duck stays away. */
+  working: number | null;
+  /** The 16 numbered colours of the look in use, for the duck. */
+  ansi: string[];
+  /** Whether the terminal is on screen. */
+  visible: boolean;
   /** Colour of the word that opens a warning: the theme's yellow. */
   warningColor: string;
   /** The user accepted the change the hint proposes. */
@@ -17,40 +24,46 @@ interface HintBarProps {
  * went would resize the terminal each time, and the shell redraws its
  * prompt on every resize.
  */
-export function HintBar({ hint, warningColor, onFix }: HintBarProps) {
+export function HintBar({ hint, working, ansi, visible, warningColor, onFix }: HintBarProps) {
   return (
     <div
       role="status"
       aria-live="polite"
       className="flex h-6 shrink-0 items-center gap-2 overflow-hidden pt-1 text-xs text-fg/70"
     >
-      {hint && (
-        <>
-          {hint.tone === 'warning' && (
-            <strong className="shrink-0" style={{ color: warningColor }}>
-              Cuidado
-            </strong>
-          )}
-          {hint.subject && (
-            <code className="shrink-0 rounded bg-fg/10 px-1 font-mono text-fg">{hint.subject}</code>
-          )}
-          {/* The whole text stays reachable when the window is too narrow for it. */}
-          <span className="min-w-0 truncate select-text" title={hint.text}>
-            {hint.text}
-          </span>
-          {hint.fix && (
-            <button
-              type="button"
-              title={`Cambia esa parte del comando por: ${hint.fix.text}`}
-              // Keeps the keyboard in the terminal: the user goes on typing.
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={onFix}
-              className="shrink-0 rounded border border-fg/25 px-1.5 text-fg outline-none hover:bg-fg/10 focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              Cambiar <span className="text-fg/60">Ctrl+.</span>
-            </button>
-          )}
-        </>
+      {working !== null ? (
+        <DuckWorking since={working} ansi={ansi} visible={visible} />
+      ) : (
+        hint && (
+          <>
+            {hint.tone === 'warning' && (
+              <strong className="shrink-0" style={{ color: warningColor }}>
+                Cuidado
+              </strong>
+            )}
+            {hint.subject && (
+              <code className="shrink-0 rounded bg-fg/10 px-1 font-mono text-fg">
+                {hint.subject}
+              </code>
+            )}
+            {/* The whole text stays reachable when the window is too narrow for it. */}
+            <span className="min-w-0 truncate select-text" title={hint.text}>
+              {hint.text}
+            </span>
+            {hint.fix && (
+              <button
+                type="button"
+                title={`Cambia esa parte del comando por: ${hint.fix.text}`}
+                // Keeps the keyboard in the terminal: the user goes on typing.
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={onFix}
+                className="shrink-0 rounded border border-fg/25 px-1.5 text-fg outline-none hover:bg-fg/10 focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                Cambiar <span className="text-fg/60">Ctrl+.</span>
+              </button>
+            )}
+          </>
+        )
       )}
     </div>
   );
