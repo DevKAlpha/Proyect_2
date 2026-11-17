@@ -27,6 +27,7 @@ import { usePrograms } from '../stores/programs';
 import { useRemote } from '../stores/remote';
 import { effectiveFontSize, loadFonts, useSettings } from '../stores/settings';
 import { useTabs, type Tab } from '../stores/tabs';
+import { showsWorking } from '../stores/working';
 import { terminalTheme } from '../stores/theme';
 import { HintBar } from './HintBar';
 import { attachPathLinks } from './pathLinks';
@@ -142,6 +143,8 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
   // The folder the shell is in and its Git branch.
   const [place, setPlace] = useState<Place | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // When the command running now started, while the duck should swim for it.
+  const [working, setWorking] = useState<number | null>(null);
   // A paste of several lines that waits for the user's yes.
   const [pendingPaste, setPendingPaste] = useState<{ text: string; lines: number } | null>(null);
   /** Answers the question about a paste and gives the keyboard back. */
@@ -234,7 +237,12 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
         programs: usePrograms.getState().byShell[tab.shellId] ?? null,
       }),
       onHint: setHint,
-      onPrompt: refreshPlace,
+      onRun: (command) => setWorking(showsWorking(command) ? Date.now() : null),
+      // The prompt is back: the command finished.
+      onPrompt: () => {
+        setWorking(null);
+        refreshPlace();
+      },
     });
     // Another program can change the branch while this window is in the
     // background (an editor, a Git client).
@@ -336,6 +344,15 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
       assist.beforeInput(data);
       send(data);
     });
+    // A program the user types into is talking with them, not working on
+    // its own (a question, a console). Neither is one that takes the whole
+    // screen (an editor, a pager). The duck leaves both alone.
+    const typed = term.onKey(({ domEvent }) => {
+      if (domEvent.key !== 'Enter') setWorking(null);
+    });
+    const screens = term.buffer.onBufferChange((buffer) => {
+      if (buffer.type === 'alternate') setWorking(null);
+    });
     const resize = term.onResize(({ cols, rows }) => {
       if (sessionId !== null) void resizePty(sessionId, cols, rows);
     });
@@ -355,6 +372,8 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
       assistRef.current = null;
       sessionRef.current = null;
       input.dispose();
+      typed.dispose();
+      screens.dispose();
       resize.dispose();
       if (sessionId !== null) void killPty(sessionId);
       term.dispose();
@@ -434,6 +453,9 @@ export function TerminalPane({ tab, active, frame, marked, onConnect }: Terminal
       {config?.input.hints && (
         <HintBar
           hint={hint}
+          working={working}
+          ansi={config.theme.ansi}
+          visible={frame !== null}
           // The fourth numbered colour is yellow.
           warningColor={config.theme.ansi[3] ?? config.theme.foreground}
           onFix={() => assistRef.current?.applyFix()}

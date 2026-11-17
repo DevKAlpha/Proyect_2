@@ -54,6 +54,32 @@ export const DUCK = [
   '.....DDDDDDDDDDD......',
 ];
 
+/**
+ * The CSS colour of each mark of the duck, taken from the look in use: its
+ * 16 numbered colours `ansi`, its accent and its text colour. The hat is
+ * white, a little towards the text colour so it shows on a light look. `A`
+ * is the water the small duck swims in (`stores/working`).
+ */
+export function duckColours(ansi: string[]): Record<string, string> {
+  const yellow = ansi[11] ?? '#ffd866';
+  const amber = ansi[3] ?? '#f2c744';
+  const red = ansi[1] ?? '#ff5f56';
+  const cyan = ansi[6] ?? '#33c9dc';
+  return {
+    W: 'color-mix(in srgb, #ffffff 88%, var(--term-fg))',
+    S: 'color-mix(in srgb, #b9c0cc 88%, var(--term-fg))',
+    B: 'var(--term-accent)',
+    Y: yellow,
+    H: `color-mix(in srgb, ${yellow} 45%, #ffffff)`,
+    D: `color-mix(in srgb, ${amber} 78%, #6b3d00)`,
+    O: `color-mix(in srgb, ${amber} 45%, ${red})`,
+    P: `color-mix(in srgb, ${amber} 25%, ${red})`,
+    K: '#16161a',
+    E: '#ffffff',
+    A: `color-mix(in srgb, ${cyan} 75%, var(--term-bg))`,
+  };
+}
+
 /** The dots of `text` in one row, one empty column between letters. */
 export function textDots(text: string): string[] {
   const letters = [...text].map((letter) => LETTERS[letter]);

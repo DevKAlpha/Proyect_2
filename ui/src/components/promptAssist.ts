@@ -23,6 +23,8 @@ export interface PromptAssistOptions {
   history: () => string[];
   /** Called with each command the user runs. */
   record: (command: string) => void;
+  /** Called with each command when Enter sends it to the shell, to show that it runs. */
+  onRun: (command: string) => void;
   /** What is known about the shell of this terminal. */
   guide: () => GuideContext;
   /** Called when there is something new to say about the line, or nothing any more. */
@@ -296,6 +298,7 @@ export function attachPromptAssist(term: Terminal, options: PromptAssistOptions)
         const line = currentLine();
         if (line && line.text.trim()) {
           options.record(line.text);
+          options.onRun(line.text);
           ranCommand = true;
         }
         leavePrompt();

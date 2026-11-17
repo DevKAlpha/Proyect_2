@@ -1,4 +1,4 @@
-import { DUCK, dotsPath, marksOf, textDots } from '../stores/banner';
+import { DUCK, dotsPath, duckColours, marksOf, textDots } from '../stores/banner';
 
 /**
  * The version as people say it. Installers and package managers only take
@@ -35,23 +35,8 @@ interface WelcomeProps {
  * take the banner with it.
  */
 export function Welcome({ fontFamily, fontSize, ansi, plain }: WelcomeProps) {
-  const yellow = ansi[11] ?? '#ffd866';
-  const amber = ansi[3] ?? '#f2c744';
-  const red = ansi[1] ?? '#ff5f56';
-  // Each part of the duck takes a colour of the look in use. The hat is
-  // white, a little towards the text colour so it shows on a light look.
-  const colours: Record<string, string> = {
-    W: 'color-mix(in srgb, #ffffff 88%, var(--term-fg))',
-    S: 'color-mix(in srgb, #b9c0cc 88%, var(--term-fg))',
-    B: 'var(--term-accent)',
-    Y: yellow,
-    H: `color-mix(in srgb, ${yellow} 45%, #ffffff)`,
-    D: `color-mix(in srgb, ${amber} 78%, #6b3d00)`,
-    O: `color-mix(in srgb, ${amber} 45%, ${red})`,
-    P: `color-mix(in srgb, ${amber} 25%, ${red})`,
-    K: '#16161a',
-    E: '#ffffff',
-  };
+  // Each part of the duck takes a colour of the look in use.
+  const colours = duckColours(ansi);
   const ink = plain ? 'var(--term-fg)' : 'var(--term-accent)';
   return (
     <section
