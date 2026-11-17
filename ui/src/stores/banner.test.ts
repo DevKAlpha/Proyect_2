@@ -12,10 +12,13 @@ describe('textDots', () => {
   });
 
   it('writes the whole name in one row', () => {
-    const dots = textDots('TERMINAL DUCK');
+    const dots = textDots('TERMINAL_DUCK');
 
-    // Twelve letters of 6 dots, a space of 3 and twelve gaps.
-    expect(dots.every((row) => row.length === 87)).toBe(true);
+    // Thirteen characters of 6 dots and twelve gaps.
+    expect(dots.every((row) => row.length === 90)).toBe(true);
+    // The underscore of the name is on the last two rows only.
+    expect(dots[5]!.slice(56, 62)).toBe('......');
+    expect(dots[7]!.slice(56, 62)).toBe('######');
     expect(() => textDots('X')).toThrow();
   });
 });

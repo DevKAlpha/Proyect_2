@@ -6,7 +6,7 @@ import { DUCK, dotsPath, marksOf, textDots } from '../stores/banner';
  */
 const VERSION = '0.1A';
 
-const TITLE = textDots('TERMINAL DUCK');
+const TITLE = textDots('TERMINAL_DUCK');
 const TITLE_PATH = dotsPath(TITLE, '#');
 const TITLE_WIDTH = TITLE[0]!.length;
 const DUCK_WIDTH = DUCK[0]!.length;
