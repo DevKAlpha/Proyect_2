@@ -72,7 +72,7 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 - Borra parte de un comando seleccionándola con el ratón o con el teclado.
 - Aspecto de consola de router por defecto: blanco sobre negro, con color solo donde hace falta distinguir algo.
 - Personalizable: temas, colores, fuente, cursor e imagen de fondo.
-- Fuente JetBrains Mono incluida, texto nítido en pantallas de alta densidad y zoom con el teclado.
+- Letra de píxeles de terminal antigua (VT323) en el aspecto por defecto, y JetBrains Mono en las demás plantillas; las dos incluidas, texto nítido en pantallas de alta densidad y zoom con el teclado.
 - Avisa si faltan Node.js o Docker y los instala con un clic, en una pestaña donde ves el comando.
 - Pega y suelta archivos e imágenes: entran en la terminal como rutas, que es como los agentes de IA reciben una captura o un documento.
 - Plantillas de aspecto, sencillas y detalladas, para cambiar el look con un clic y aprender a personalizarlo.

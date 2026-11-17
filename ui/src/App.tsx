@@ -446,6 +446,7 @@ export function App() {
             fontFamily={config.font.family}
             fontSize={config.font.size}
             ansi={config.theme.ansi}
+            plain={config.theme.preset === 'console'}
           />
         )}
 

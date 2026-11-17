@@ -1,10 +1,12 @@
 /**
- * The banner of the app, drawn with terminal characters.
+ * The banner of the app: pictures made of square dots, like the block
+ * characters of a terminal.
  *
- * Pictures are grids of square dots. A character cell is about twice as
- * tall as it is wide, so each cell shows two dots, one above the other,
- * with the half-block characters. Pure functions: the component only
- * colours what comes out of here.
+ * The dots are drawn as shapes, not as characters of a font. That is what
+ * terminals do with block characters too: a font leaves hairlines between
+ * its blocks, different in every font and at every screen scale, and a
+ * picture made of them looks cut into pieces. Pure functions: the component
+ * only colours what comes out of here.
  */
 
 /** Letters of the name, 6 dots wide and 8 tall, with thick strokes. */
@@ -21,57 +23,64 @@ const LETTERS: Record<string, string[]> = {
   U: ['##..##', '##..##', '##..##', '##..##', '##..##', '##..##', '######', '.####.'],
   C: ['.#####', '######', '##....', '##....', '##....', '##....', '######', '.#####'],
   K: ['##..##', '##.##.', '####..', '###...', '###...', '####..', '##.##.', '##..##'],
+  ' ': ['...', '...', '...', '...', '...', '...', '...', '...'],
 };
 
 /**
  * The duck: a rubber duck that looks right, under a white top hat.
- * `W` hat, `B` its band, `Y` body, `D` wing, `O` beak, `K` eye.
+ * `W` hat, `S` its shaded side, `B` its band, `Y` body, `H` shine, `D`
+ * shade, `O` beak, `P` its lower half, `K` eye, `E` the glint in it.
  */
 export const DUCK = [
-  '.....WWWWWW.......',
-  '......WWWWWW......',
-  '......WWWWWW......',
-  '......BBBBBB......',
-  '....WWWWWWWWWW....',
-  '......YYYYYY......',
-  '.....YYYYYYYY.....',
-  '.....YYYYYKYYOOO..',
-  '.....YYYYYYYYOOOO.',
-  '.Y....YYYYYYY.....',
-  '.YY..YYYYYYYY.....',
-  '.YYYYYYYYYYYYYY...',
-  '.YYYDDDDDYYYYYY...',
-  '..YYYDDDDYYYYYY...',
-  '..YYYYYYYYYYYY....',
-  '...YYYYYYYYYY.....',
+  '........WWWWWWW.......',
+  '.......WWWWWWWWS......',
+  '.......WWWWWWWWS......',
+  '.......WWWWWWWWS......',
+  '.......BBBBBBBBB......',
+  '.....WWWWWWWWWWWWS....',
+  '........YYYYYYY.......',
+  '.......YHHYYYYYY......',
+  '.......YHYYYKEYYOOOO..',
+  '.......YYYYYKKYYOOOOO.',
+  '.......YYYYYYYYYPPPP..',
+  '..Y.....YYYYYYYY......',
+  '..YY...YYYYYYYYYY.....',
+  '..YYYYYYYYYYYYYYYY....',
+  '..YYYHHYYYYYYYYYYYY...',
+  '..YYYYDDDDDDYYYYYYY...',
+  '...YYYYDDDDDYYYYYYY...',
+  '...YYYYYYYYYYYYYYYD...',
+  '....YYYYYYYYYYYYDD....',
+  '.....DDDDDDDDDDD......',
 ];
 
-/** The dots of `word` side by side, one empty column between letters. */
-export function wordDots(word: string): string[] {
-  const letters = [...word].map((letter) => LETTERS[letter]);
-  if (letters.some((letter) => !letter)) throw new Error(`no letter for: ${word}`);
+/** The dots of `text` in one row, one empty column between letters. */
+export function textDots(text: string): string[] {
+  const letters = [...text].map((letter) => LETTERS[letter]);
+  if (letters.some((letter) => !letter)) throw new Error(`no letter for: ${text}`);
   return Array.from({ length: 8 }, (_, row) => letters.map((letter) => letter![row]).join('.'));
 }
 
 /**
- * The lines of text that draw the dots of `grid` marked with `mark`: two
- * rows of dots per line. A grid with an odd number of rows gets an empty
- * one at the end.
+ * The outline, as an SVG path, of the dots of `grid` marked with `mark`.
+ * One unit is one dot. Dots that touch in a row become one rectangle, so no
+ * line can show between them.
  */
-export function halfBlocks(grid: string[], mark: string): string[] {
-  const lines: string[] = [];
-  for (let row = 0; row < grid.length; row += 2) {
-    const top = grid[row]!;
-    const bottom = grid[row + 1] ?? '';
-    let line = '';
-    for (let column = 0; column < top.length; column++) {
-      const up = top[column] === mark;
-      const down = bottom[column] === mark;
-      line += up && down ? '█' : up ? '▀' : down ? '▄' : ' ';
+export function dotsPath(grid: string[], mark: string): string {
+  let path = '';
+  grid.forEach((row, y) => {
+    let x = 0;
+    while (x < row.length) {
+      if (row[x] !== mark) {
+        x++;
+        continue;
+      }
+      const start = x;
+      while (row[x] === mark) x++;
+      path += `M${start} ${y}h${x - start}v1h${start - x}z`;
     }
-    lines.push(line);
-  }
-  return lines;
+  });
+  return path;
 }
 
 /** The marks used in `grid`, without the empty dot. */

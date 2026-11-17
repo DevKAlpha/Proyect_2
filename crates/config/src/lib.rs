@@ -107,7 +107,8 @@ pub struct CustomAgent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Font {
-    /// CSS font list: the first available family wins. JetBrains Mono ships
+    /// CSS font list: the first available family wins. VT323 (the pixel
+    /// letters of an old terminal) and JetBrains Mono ship
     /// with the app, so it is available on every system.
     pub family: String,
     pub size: u16,
@@ -172,10 +173,11 @@ impl Default for Config {
 impl Default for Font {
     fn default() -> Self {
         Self {
-            family: "JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
-                .into(),
-            size: 14,
-            line_height: 1.2,
+            family:
+                "VT323, JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace"
+                    .into(),
+            size: 20,
+            line_height: 1.0,
         }
     }
 }
@@ -244,7 +246,7 @@ pub fn load_or_create(path: &Path) -> Result<Config, ConfigError> {
         fs::write(path, DEFAULT_TOML)?;
     }
     let mut text = fs::read_to_string(path)?;
-    if let Some(updated) = adopt_default_theme(&text) {
+    if let Some(updated) = adopt_defaults(&text) {
         // A file that cannot be written keeps its old look: not worth
         // stopping the terminal for.
         if fs::write(path, &updated).is_ok() {
@@ -275,22 +277,71 @@ const THEME_LINES: [&str; 3] = [
 /// longer has those two lines together and is left alone. So is this file
 /// after the change: choosing "dark" later sticks.
 pub fn adopt_default_theme(text: &str) -> Option<String> {
+    replace_lines(text, &OLD_THEME_LINES, &THEME_LINES)
+}
+
+/// The font lines of the file older builds wrote on first run, when the
+/// default letter was the modern one.
+const OLD_FONT_LINES: [&str; 7] = [
+    "# Se usa la primera fuente de la lista que esté disponible. JetBrains Mono",
+    "# viene incluida en la terminal; las demás deben estar instaladas en el equipo.",
+    "family = \"JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace\"",
+    "# Tamaño base. Ctrl + y Ctrl - lo cambian mientras trabajas; Ctrl 0 vuelve a este valor.",
+    "size = 14",
+    "# Alto de cada línea, como múltiplo del tamaño de la fuente.",
+    "line_height = 1.2",
+];
+/// What replaces them: the lines of the file written today.
+const FONT_LINES: [&str; 11] = [
+    "# Se usa la primera fuente de la lista que esté disponible. VT323 (letra de",
+    "# píxeles, como la de una terminal antigua) y JetBrains Mono vienen incluidas",
+    "# en la terminal; las demás deben estar instaladas en el equipo.",
+    "family = \"VT323, JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace\"",
+    "# Para una letra moderna, cambia la línea de arriba por esta, con size = 14",
+    "# y line_height = 1.2:",
+    "# family = \"JetBrains Mono, Cascadia Code, Consolas, Menlo, DejaVu Sans Mono, monospace\"",
+    "# Tamaño base. Ctrl + y Ctrl - lo cambian mientras trabajas; Ctrl 0 vuelve a este valor.",
+    "size = 20",
+    "# Alto de cada línea, como múltiplo del tamaño de la fuente.",
+    "line_height = 1.0",
+];
+
+/// The same for the letter: `text` with the pixel font of today, when it
+/// still carries, whole and untouched, the font lines an older build wrote.
+/// One changed value (a size the user liked) and the file is left alone.
+pub fn adopt_default_font(text: &str) -> Option<String> {
+    replace_lines(text, &OLD_FONT_LINES, &FONT_LINES)
+}
+
+/// `text` with every default an older build wrote brought up to date, or
+/// `None` when there is nothing to change.
+pub fn adopt_defaults(text: &str) -> Option<String> {
+    let theme = adopt_default_theme(text);
+    let font = adopt_default_font(theme.as_deref().unwrap_or(text));
+    font.or(theme)
+}
+
+/// `text` with the lines `old`, found together and in order, replaced by
+/// `new`. `None` when they are not there. The file keeps its line endings.
+fn replace_lines(text: &str, old: &[&str], new: &[&str]) -> Option<String> {
     let lines: Vec<&str> = text.split_inclusive('\n').collect();
-    let at = lines.windows(2).position(|pair| {
-        pair[0].trim_end() == OLD_THEME_LINES[0] && pair[1].trim_end() == OLD_THEME_LINES[1]
+    let at = lines.windows(old.len()).position(|found| {
+        found
+            .iter()
+            .zip(old)
+            .all(|(line, wanted)| line.trim_end() == *wanted)
     })?;
-    // The file keeps its own line endings.
     let ending = if lines[at].ends_with("\r\n") {
         "\r\n"
     } else {
         "\n"
     };
     let mut updated: String = lines[..at].concat();
-    for line in THEME_LINES {
+    for line in new {
         updated.push_str(line);
         updated.push_str(ending);
     }
-    updated.push_str(&lines[at + 2..].concat());
+    updated.push_str(&lines[at + old.len()..].concat());
     Some(updated)
 }
 
@@ -489,6 +540,32 @@ preset = 'neon'
         assert!(updated.ends_with("preset = \"console\"\r\n# background = \"#14161b\"\r\n"));
         // Done once: the new file is not touched again.
         assert_eq!(adopt_default_theme(&updated), None);
+    }
+
+    #[test]
+    fn a_file_with_the_old_default_font_gets_the_pixel_one() {
+        let old = format!("[font]\n{}\n\n[cursor]\n", OLD_FONT_LINES.join("\n"));
+
+        let updated = adopt_defaults(&old).unwrap();
+
+        assert_eq!(Config::parse(&updated).unwrap().font, Font::default());
+        assert!(updated.ends_with("line_height = 1.0\n\n[cursor]\n"));
+        assert_eq!(adopt_defaults(&updated), None);
+    }
+
+    #[test]
+    fn the_font_lines_written_today_are_the_ones_of_the_default_file() {
+        assert!(DEFAULT_TOML
+            .replace("\r\n", "\n")
+            .contains(&FONT_LINES.join("\n")));
+    }
+
+    #[test]
+    fn a_font_the_user_changed_is_kept() {
+        let old =
+            format!("[font]\n{}\n", OLD_FONT_LINES.join("\n")).replace("size = 14", "size = 16");
+
+        assert_eq!(adopt_defaults(&old), None);
     }
 
     #[test]
