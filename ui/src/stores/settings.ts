@@ -18,7 +18,7 @@ const SIDEBAR_WIDTH_KEY = 'terminal:sidebar-width';
 const SPLIT_RATIO_KEY = 'terminal:split-ratio';
 
 /** Limits of the sidebar, in pixels: wide enough to read, never most of the window. */
-export const SIDEBAR_WIDTH = { min: 160, max: 480, initial: 224 };
+export const SIDEBAR_WIDTH = { min: 160, max: 480, initial: 264 };
 /** Limits of the left half of a split, as a share of the room: neither half can vanish. */
 export const SPLIT_RATIO = { min: 0.2, max: 0.8, initial: 0.5 };
 

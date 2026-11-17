@@ -61,6 +61,7 @@ Ejecutar un comando descargado de internet merece desconfianza, también este. L
 - Detecta los shells instalados (PowerShell, Windows PowerShell, cmd, Git Bash, WSL, bash, zsh, fish).
 - Pestañas, una sesión por pestaña. Cada pestaña puede ser un shell o un agente de IA.
 - Proyectos: carpetas con sus terminales, ordenadas en una barra lateral. Se guardan entre sesiones.
+- La barra lateral se lee como el menú de una web: iconos propios, la terminal activa resaltada, cuántas terminales tiene cada proyecto y la letra de la plantilla que uses.
 - Vista dividida: dos terminales lado a lado, con el reparto que tú elijas. Por ejemplo, un agente de IA a un lado y tu shell al otro.
 - Agentes de IA: detecta Claude Code, Codex, Gemini CLI, OpenCode y GitHub Copilot CLI. Los instalados se abren desde el menú de pestaña nueva; los que faltan se instalan desde ahí. Puedes añadir cualquier otro en la configuración.
 - Navegador de pruebas: un navegador aislado que los agentes controlan para probar aplicaciones web.

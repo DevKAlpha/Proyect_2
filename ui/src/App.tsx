@@ -362,7 +362,7 @@ export function App() {
           }}
         />
       )}
-      {sidebarOpen && (
+      {sidebarOpen && config && (
         <>
           <Sidebar
             projects={projects}
@@ -386,6 +386,8 @@ export function App() {
             onOpenAppFolder={(which) => void openAppFolder(which).catch(() => {})}
             onShowShortcuts={toggleHelp}
             width={sidebarWidth}
+            fontFamily={config.font.family}
+            fontSize={config.font.size}
             templates={templates}
             appliedTemplate={appliedTemplate}
             onApplyTemplate={(id) => void applyTemplate(id)}
